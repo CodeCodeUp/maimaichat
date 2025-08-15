@@ -1,0 +1,79 @@
+2025-08-15 14:14:47,087 - __main__ - INFO - 启动脉脉自动发布系统
+2025-08-15 14:14:47,270 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.10.86.198:5000
+2025-08-15 14:14:47,270 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-08-15 14:14:47,272 - werkzeug - INFO -  * Restarting with stat
+2025-08-15 14:14:47,547 - __main__ - INFO - 启动脉脉自动发布系统
+2025-08-15 14:14:47,558 - werkzeug - WARNING -  * Debugger is active!
+2025-08-15 14:14:47,577 - werkzeug - INFO -  * Debugger PIN: 104-998-922
+2025-08-15 14:14:58,885 - werkzeug - INFO - 127.0.0.1 - - [15/Aug/2025 14:14:58] "GET / HTTP/1.1" 200 -
+2025-08-15 14:14:58,930 - werkzeug - INFO - 127.0.0.1 - - [15/Aug/2025 14:14:58] "GET /static/css/style.css HTTP/1.1" 200 -
+2025-08-15 14:14:58,958 - werkzeug - INFO - 127.0.0.1 - - [15/Aug/2025 14:14:58] "GET /static/js/main.js HTTP/1.1" 200 -
+2025-08-15 14:14:59,038 - werkzeug - INFO - 127.0.0.1 - - [15/Aug/2025 14:14:59] "GET /api/config HTTP/1.1" 200 -
+2025-08-15 14:14:59,069 - werkzeug - INFO - 127.0.0.1 - - [15/Aug/2025 14:14:59] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2025-08-15 14:38:43,482 - werkzeug - INFO -  * Detected change in 'D:\\WorkProject\\maimaichat\\modules\\ai_generator.py', reloading
+2025-08-15 14:38:43,774 - werkzeug - INFO -  * Restarting with stat
+2025-08-15 14:38:45,700 - __main__ - INFO - 启动脉脉自动发布系统
+2025-08-15 14:38:45,834 - werkzeug - WARNING -  * Debugger is active!
+2025-08-15 14:38:45,836 - werkzeug - INFO -  * Debugger PIN: 104-998-922
+2025-08-15 14:39:00,167 - werkzeug - INFO -  * Detected change in 'D:\\WorkProject\\maimaichat\\app.py', reloading
+2025-08-15 14:39:00,194 - werkzeug - INFO -  * Restarting with stat
+2025-08-15 14:39:00,483 - __main__ - INFO - 启动脉脉自动发布系统
+2025-08-15 14:39:00,499 - werkzeug - WARNING -  * Debugger is active!
+2025-08-15 14:39:00,502 - werkzeug - INFO -  * Debugger PIN: 104-998-922
+2025-08-15 14:39:11,709 - werkzeug - INFO -  * Detected change in 'D:\\WorkProject\\maimaichat\\app.py', reloading
+2025-08-15 14:39:11,760 - werkzeug - INFO -  * Restarting with stat
+2025-08-15 14:39:12,055 - __main__ - INFO - 启动脉脉自动发布系统
+2025-08-15 14:39:12,066 - werkzeug - WARNING -  * Debugger is active!
+2025-08-15 14:39:12,068 - werkzeug - INFO -  * Debugger PIN: 104-998-922
+2025-08-15 14:39:30,335 - werkzeug - INFO -  * Detected change in 'D:\\WorkProject\\maimaichat\\app.py', reloading
+2025-08-15 14:39:30,365 - werkzeug - INFO -  * Restarting with stat
+2025-08-15 14:39:30,739 - __main__ - INFO - 启动脉脉自动发布系统
+2025-08-15 14:39:30,750 - werkzeug - WARNING -  * Debugger is active!
+2025-08-15 14:39:30,752 - werkzeug - INFO -  * Debugger PIN: 104-998-922
+2025-08-15 14:39:39,892 - werkzeug - INFO -  * Detected change in 'D:\\WorkProject\\maimaichat\\app.py', reloading
+2025-08-15 14:39:39,919 - werkzeug - INFO -  * Restarting with stat
+2025-08-15 14:56:23,850 - __main__ - INFO - 启动脉脉自动发布系统
+2025-08-15 14:56:23,873 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.10.86.198:5000
+2025-08-15 14:56:23,873 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-08-15 14:56:23,875 - werkzeug - INFO -  * Restarting with stat
+2025-08-15 14:56:24,168 - __main__ - INFO - 启动脉脉自动发布系统
+2025-08-15 14:56:24,180 - werkzeug - WARNING -  * Debugger is active!
+2025-08-15 14:56:24,182 - werkzeug - INFO -  * Debugger PIN: 104-998-922
+2025-08-15 14:56:27,502 - werkzeug - INFO - 127.0.0.1 - - [15/Aug/2025 14:56:27] "GET / HTTP/1.1" 200 -
+2025-08-15 14:56:27,515 - werkzeug - INFO - 127.0.0.1 - - [15/Aug/2025 14:56:27] "GET /static/js/main.js HTTP/1.1" 200 -
+2025-08-15 14:56:27,515 - werkzeug - INFO - 127.0.0.1 - - [15/Aug/2025 14:56:27] "GET /static/css/style.css HTTP/1.1" 200 -
+2025-08-15 14:56:45,208 - __main__ - INFO - 测试AI API连接
+2025-08-15 14:56:47,387 - modules.ai_generator - ERROR - AI API请求异常：HTTPSConnectionPool(host='tbai.xin', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate in certificate chain (_ssl.c:1000)')))
+2025-08-15 14:56:47,387 - __main__ - INFO - 测试脉脉API连接
+2025-08-15 14:56:48,305 - werkzeug - INFO - 127.0.0.1 - - [15/Aug/2025 14:56:48] "POST /api/test-connection HTTP/1.1" 200 -
+2025-08-15 14:59:09,353 - werkzeug - INFO -  * Detected change in 'D:\\WorkProject\\maimaichat\\app.py', reloading
+2025-08-15 14:59:09,385 - werkzeug - INFO -  * Restarting with stat
+2025-08-15 14:59:09,640 - __main__ - INFO - 启动脉脉自动发布系统
+2025-08-15 14:59:09,648 - werkzeug - WARNING -  * Debugger is active!
+2025-08-15 14:59:09,653 - werkzeug - INFO -  * Debugger PIN: 104-998-922
+2025-08-15 14:59:23,911 - werkzeug - INFO -  * Detected change in 'D:\\WorkProject\\maimaichat\\app.py', reloading
+2025-08-15 14:59:23,942 - werkzeug - INFO -  * Restarting with stat
+2025-08-15 15:06:24,013 - __main__ - INFO - 启动脉脉自动发布系统
+2025-08-15 15:06:24,033 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.10.86.198:5000
+2025-08-15 15:06:24,033 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-08-15 15:06:24,035 - werkzeug - INFO -  * Restarting with stat
+2025-08-15 15:06:24,304 - __main__ - INFO - 启动脉脉自动发布系统
+2025-08-15 15:06:24,315 - werkzeug - WARNING -  * Debugger is active!
+2025-08-15 15:06:24,317 - werkzeug - INFO -  * Debugger PIN: 104-998-922
+2025-08-15 15:06:27,534 - werkzeug - INFO - 127.0.0.1 - - [15/Aug/2025 15:06:27] "GET / HTTP/1.1" 200 -
+2025-08-15 15:06:27,547 - werkzeug - INFO - 127.0.0.1 - - [15/Aug/2025 15:06:27] "GET /static/css/style.css HTTP/1.1" 200 -
+2025-08-15 15:06:27,547 - werkzeug - INFO - 127.0.0.1 - - [15/Aug/2025 15:06:27] "GET /static/js/main.js HTTP/1.1" 200 -
+2025-08-15 15:07:06,568 - werkzeug - INFO - 127.0.0.1 - - [15/Aug/2025 15:07:06] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-08-15 15:07:06,581 - werkzeug - INFO - 127.0.0.1 - - [15/Aug/2025 15:07:06] "[33mGET /.well-known/appspecific/com.chrome.devtools.json HTTP/1.1[0m" 404 -
+2025-08-15 15:07:17,476 - __main__ - INFO - 开始对话生成，消息数：1
+2025-08-15 15:07:18,596 - modules.ai_generator - ERROR - AI API请求异常：HTTPSConnectionPool(host='tbai.xin', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate in certificate chain (_ssl.c:1000)')))
+2025-08-15 15:07:18,596 - werkzeug - INFO - 127.0.0.1 - - [15/Aug/2025 15:07:18] "POST /api/generate HTTP/1.1" 200 -
