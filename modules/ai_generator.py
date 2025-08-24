@@ -48,7 +48,7 @@ class AIContentGenerator:
                 f"{self.base_url}/chat/completions",
                 headers=headers,
                 json=payload,
-                timeout=30
+                timeout=600
             )
             if resp.status_code == 200:
                 data = resp.json()

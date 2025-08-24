@@ -7,11 +7,14 @@
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-    <div class="container minimal">
+    <div class="container">
         <div class="topbar">
-            <div class="brand">Maimai Publisher</div>
+            <div class="brand">🚀 Maimai Publisher</div>
             <div class="actions">
-                <button id="test-connection" class="btn-secondary small">连接测试</button>
+                <button id="test-connection" class="btn-secondary small">
+                    <span class="icon">🔌</span>
+                    <span>连接测试</span>
+                </button>
             </div>
         </div>
 
@@ -21,16 +24,16 @@
                     <div class="section-title">会话</div>
                     <div class="list" id="chat-list"></div>
                     <div class="row">
-                        <button id="new-chat" class="btn-primary small">新建会话</button>
-                        <button id="save-chat" class="btn-secondary small">保存会话</button>
+                        <button id="new-chat" class="btn-primary small grow">新建会话</button>
+                        <button id="save-chat" class="btn-secondary small">保存</button>
                     </div>
                 </div>
                 <div class="section">
                     <div class="section-title">草稿</div>
                     <div class="list" id="draft-list"></div>
                     <div class="row">
-                        <button id="new-draft" class="btn-primary small">新建草稿</button>
-                        <button id="save-draft" class="btn-secondary small">保存草稿</button>
+                        <button id="new-draft" class="btn-primary small grow">新建草稿</button>
+                        <button id="save-draft" class="btn-secondary small">保存</button>
                     </div>
                 </div>
             </aside>
@@ -43,7 +46,7 @@
                         <div class="row">
                             <button id="send-msg" class="btn-primary">
                                 <span class="btn-text">发送</span>
-                                <span class="loading" style="display:none;">生成中...</span>
+                                <span class="loading">生成中...</span>
                             </button>
                             <button id="clear-chat" class="btn-secondary">清空</button>
                         </div>
@@ -52,17 +55,17 @@
 
                 <section class="publish">
                     <div class="row">
-                        <input type="text" id="title" placeholder="文章标题">
+                        <input type="text" id="title" placeholder="文章标题" class="grow">
                         <button id="publish-btn" class="btn-success" disabled>
                             <span class="btn-text">发布</span>
-                            <span class="loading" style="display:none;">发布中...</span>
+                            <span class="loading">发布中...</span>
                         </button>
                     </div>
                     <div class="row">
-                        <input type="url" id="topic-url" placeholder="话题链接（可选）">
-                        <button id="get-topic-info" class="btn-secondary">获取话题信息</button>
+                        <input type="url" id="topic-url" placeholder="话题链接（可选）" class="grow">
+                        <button id="get-topic-info" class="btn-secondary small">获取信息</button>
                     </div>
-                    <textarea id="generated-content" rows="10" placeholder="生成的内容会显示在这里，可编辑后发布"></textarea>
+                    <textarea id="generated-content" rows="8" placeholder="生成的内容会显示在这里，可编辑后发布"></textarea>
                     <div class="row">
                         <button id="clear-btn" class="btn-secondary">清空内容</button>
                     </div>
@@ -71,10 +74,11 @@
 
             <aside class="rightbar">
                 <div class="section">
-                    <div class="section-title">模型</div>
+                    <div class="section-title">模型设置</div>
                     <label class="switch">
                         <input type="checkbox" id="use-main-model" checked>
-                        <span>使用主模型</span>
+                        <span class="slider"></span>
+                        <span>使用主模型 (Pro)</span>
                     </label>
                 </div>
                 <div class="section">
@@ -95,10 +99,6 @@
                 </div>
             </aside>
         </div>
-
-        <footer class="footer">
-            <div>&copy; 2024 Maimai Publisher</div>
-        </footer>
     </div>
 
     <script src="/static/js/main.js"></script>
