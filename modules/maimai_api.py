@@ -2,7 +2,11 @@ import requests
 import json
 import logging
 from typing import Dict, Any, Optional
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlencode
+import urllib.parse
+import uuid
+import hashlib
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -16,23 +20,19 @@ class MaimaiAPI:
         Args:
             config: 脉脉API配置字典
         """
-        self.base_url = config.get('base_url', 'https://maimai.cn/api')
+        self.base_url = config.get('base_url', 'https://api.taou.com')
         self.access_token = config.get('access_token', '')
-        self.user_agent = config.get('user_agent', 'MaimaiChat/1.0')
         
-        # 设置请求头
-        self.headers = {
-            'User-Agent': self.user_agent,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        }
-        
-        if self.access_token:
-            self.headers['Authorization'] = f'Bearer {self.access_token}'
+        # 从配置中获取设备参数和请求头
+        self.device_params = config.get('device_params', {})
+        self.headers = config.get('headers', {})
     
     def extract_topic_id(self, url: str) -> Optional[str]:
         """
         从脉脉话题URL中提取topic_id
+        支持两种URL格式：
+        1. 简单格式：https://maimai.cn/n/content/global-topic?circle_type=9&topic_id=zGMekSRN
+        2. 复杂格式：发布接口中的topics参数
         
         Args:
             url: 脉脉话题URL
@@ -41,13 +41,57 @@ class MaimaiAPI:
             topic_id或None
         """
         try:
-            # 解析URL参数
+            # 方式1：处理简单的话题URL格式
             if 'topic_id=' in url:
                 topic_id = url.split('topic_id=')[1].split('&')[0]
+                # URL解码
+                topic_id = urllib.parse.unquote(topic_id)
+                logger.info(f"从简单URL格式提取到topic_id: {topic_id}")
                 return topic_id
+                
+            # 方式2：尝试从复杂的topics参数中解析
+            if 'topics=' in url:
+                topics_param = url.split('topics=')[1].split('&')[0]
+                topics_decoded = urllib.parse.unquote(topics_param)
+                try:
+                    topics_data = json.loads(topics_decoded)
+                    if isinstance(topics_data, list) and len(topics_data) > 0:
+                        topic_id = topics_data[0].get('id')
+                        logger.info(f"从复杂URL格式提取到topic_id: {topic_id}")
+                        return topic_id
+                except json.JSONDecodeError:
+                    pass
+                    
             return None
         except Exception as e:
             logger.error(f"提取topic_id失败：{str(e)}")
+            return None
+    
+    def extract_topic_info_from_url(self, url: str) -> Optional[Dict[str, Any]]:
+        """
+        从脉脉话题URL中提取完整话题信息
+        
+        Args:
+            url: 脉脉话题URL
+            
+        Returns:
+            话题信息字典或None
+        """
+        try:
+            # 尝试从topics参数中解析完整信息
+            if 'topics=' in url:
+                topics_param = url.split('topics=')[1].split('&')[0]
+                topics_decoded = urllib.parse.unquote(topics_param)
+                try:
+                    topics_data = json.loads(topics_decoded)
+                    if isinstance(topics_data, list) and len(topics_data) > 0:
+                        return topics_data[0]
+                except json.JSONDecodeError:
+                    pass
+                    
+            return None
+        except Exception as e:
+            logger.error(f"提取话题信息失败：{str(e)}")
             return None
     
     def publish_content(self, 
@@ -55,66 +99,130 @@ class MaimaiAPI:
                        content: str, 
                        topic_url: str = "") -> Dict[str, Any]:
         """
-        发布内容到脉脉
+        发布内容到脉脉（完全基于真实的移动端API请求）
         
         Args:
-            title: 文章标题
-            content: 文章内容
-            topic_url: 话题URL（可选）
+            title: 文章标题（可选，主要内容在content中）
+            content: 要发布的内容
+            topic_url: 话题URL（可选，用于提取话题信息）
             
         Returns:
             发布结果字典
         """
         try:
-            # 构建发布数据
+            # 构建URL参数（使用配置中的设备参数）
+            url_params = self.device_params.copy()
+            url_params['access_token'] = f'1.{self.access_token}'
+            
+            # 添加动态参数
+            url_params['launch_uuid'] = str(uuid.uuid4())
+            url_params['session_uuid'] = str(uuid.uuid4()).replace('-', '')
+            url_params['aigc_rewrite'] = '[]'
+            url_params['topics'] = '[]'  # 默认空话题
+            url_params['pub_setting'] = '{"cmty_identity":1}'
+            url_params['pub_extra'] = '{"post_topics":[]}'
+            
+            # 如果有话题URL，尝试提取话题信息
+            if topic_url:
+                # 优先尝试从复杂URL格式中提取完整话题信息
+                if 'topics=' in topic_url:
+                    try:
+                        topics_param = topic_url.split('topics=')[1].split('&')[0]
+                        topics_decoded = urllib.parse.unquote(topics_param)
+                        # 直接使用解码后的话题数据
+                        url_params['topics'] = topics_decoded
+                        
+                        # 同时更新pub_extra
+                        topics_data = json.loads(topics_decoded)
+                        url_params['pub_extra'] = json.dumps({"post_topics": topics_data}, ensure_ascii=False)
+                        
+                        logger.info(f"提取到完整话题信息，话题数量：{len(topics_data)}")
+                    except Exception as e:
+                        logger.warning(f"解析复杂话题信息失败：{str(e)}")
+                        
+                # 处理简单URL格式（如：https://maimai.cn/n/content/global-topic?topic_id=zGMekSRN）
+                elif 'topic_id=' in topic_url:
+                    try:
+                        topic_id = self.extract_topic_id(topic_url)
+                        if topic_id:
+                            # 构造基本的话题数据结构
+                            topic_info = {
+                                "tag_id": 0,
+                                "id": topic_id,
+                                "name": f"话题_{topic_id}",
+                                "highlight_name": "",
+                                "score": 0,
+                                "circle_type": 9,
+                                "circle_id": 0,
+                                "desc": "",
+                                "view_cnt": 0,
+                                "feeds_cnt": 0,
+                                "logo": "",
+                                "schema": f"taoumaimai://rct?component=GossipGlobalTopicList&topic_id={topic_id}&circle_type=9"
+                            }
+                            
+                            topics_data = [topic_info]
+                            url_params['topics'] = json.dumps(topics_data, ensure_ascii=False)
+                            url_params['pub_extra'] = json.dumps({"post_topics": topics_data}, ensure_ascii=False)
+                            
+                            logger.info(f"构造话题信息成功，topic_id: {topic_id}")
+                    except Exception as e:
+                        logger.warning(f"处理简单话题URL失败：{str(e)}")
+            
+            # 构建完整URL
+            endpoint = f"{self.base_url}/sdk/publish"
+            full_url = f"{endpoint}?{urlencode(url_params)}"
+            
+            # 构建POST数据（复制真实请求的格式）  
             post_data = {
-                'title': title,
-                'content': content,
-                'type': 'text'  # 文本类型
+                'annoy_type': '5',
+                'is_original': '0',
+                'extra_infomation': json.dumps({
+                    "aigc_rewrite": "[]",
+                    "topics": url_params['topics'],
+                    "pub_setting": '{"cmty_identity":1}',
+                    "pub_extra": url_params['pub_extra']
+                }, ensure_ascii=False),
+                'username_type': '5',
+                'at_users': '{}',
+                'fr': 'mainpage_701_101',
+                'container_id': '-4001', 
+                'content': content,  # 这里是实际要发布的内容
+                'hash': str(int(time.time() * 1000)),
+                'target': 'post_pub'
             }
             
-            # 如果有话题URL，提取topic_id
-            if topic_url:
-                topic_id = self.extract_topic_id(topic_url)
-                if topic_id:
-                    post_data['topic_id'] = topic_id
-                    logger.info(f"关联话题ID：{topic_id}")
+            logger.info(f"准备发布内容到脉脉")
+            logger.info(f"内容长度：{len(content)}")
             
-            # 注意：这里的API端点需要根据实际的脉脉API文档调整
-            # 目前使用模拟的端点，实际使用时需要替换为真实的API
-            endpoint = f"{self.base_url}/posts"
-            
-            logger.info(f"准备发布内容到脉脉：{title}")
-            
-            # 发送发布请求
+            # 发送请求（使用真实的请求头）
             response = requests.post(
-                endpoint,
+                full_url,
                 headers=self.headers,
-                json=post_data,
+                data=urlencode(post_data),
                 timeout=30
             )
             
-            # 处理响应，不假设一定返回JSON
+            logger.info(f"响应状态码: {response.status_code}")
+            logger.info(f"响应内容: {response.text[:200]}...")
+            
+            # 处理响应
             if response.status_code in [200, 201]:
                 try:
-                    result = response.json()
-                    logger.info(f"内容发布成功：{title}")
-                    
+                    result = response.json() 
+                    logger.info(f"内容发布成功")
                     return {
                         'success': True,
                         'message': '发布成功',
-                        'post_id': result.get('id', ''),
-                        'url': result.get('url', '')
+                        'data': result
                     }
                 except json.JSONDecodeError:
-                    # 如果响应不是JSON，但状态码正常，认为发布成功
-                    logger.warning(f"发布响应不是JSON格式：{response.text}")
-                    logger.info(f"内容发布成功：{title}（非JSON响应）")
+                    # 非JSON响应但状态码正常
+                    logger.info(f"内容发布成功（非JSON响应）")
                     return {
                         'success': True,
                         'message': '发布成功',
-                        'post_id': '',
-                        'url': ''
+                        'data': response.text
                     }
             else:
                 logger.error(f"发布失败：{response.status_code} - {response.text}")
@@ -124,24 +232,6 @@ class MaimaiAPI:
                     'details': response.text
                 }
                 
-        except requests.exceptions.Timeout:
-            logger.error("发布请求超时")
-            return {
-                'success': False,
-                'error': "发布请求超时，请稍后重试"
-            }
-        except requests.exceptions.RequestException as e:
-            logger.error(f"发布请求异常：{str(e)}")
-            return {
-                'success': False,
-                'error': f"网络请求异常：{str(e)}"
-            }
-        except json.JSONDecodeError as e:
-            logger.error(f"发布响应JSON解析失败：{str(e)}")
-            return {
-                'success': False,
-                'error': f"响应格式错误：{str(e)}"
-            }
         except Exception as e:
             logger.error(f"发布异常：{str(e)}")
             return {
@@ -157,11 +247,16 @@ class MaimaiAPI:
             测试结果字典
         """
         try:
-            # 测试用户信息接口（需要根据实际API调整）
-            endpoint = f"{self.base_url}/user/profile"
+            # 构建测试URL参数（使用配置中的设备参数）
+            url_params = self.device_params.copy()
+            url_params['access_token'] = f"1.{self.access_token}"
+            
+            # 测试用户信息接口
+            endpoint = f"{self.base_url}/sdk/profile"
+            full_url = f"{endpoint}?{urlencode(url_params)}"
             
             response = requests.get(
-                endpoint,
+                full_url,
                 headers=self.headers,
                 timeout=10
             )

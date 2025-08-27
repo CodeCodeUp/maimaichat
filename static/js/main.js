@@ -94,7 +94,7 @@ class MaimaiPublisher {
         await this.refreshDraftList();
         this.addSystemMessage('你是一个资深新媒体编辑，擅长将话题梳理成适合脉脉的内容。');
         this.updatePublishButton();
-        this.updateStatus('系统初始化完成', 'success');
+        this.updateStatus('系统初始化完成，已配置移动端API发布模式', 'success');
     }
 
     // 初始化按钮状态
@@ -600,7 +600,7 @@ class MaimaiPublisher {
             const result = await response.json();
             
             if (result.success) {
-                this.updateStatus(`发布成功！${result.message}${result.url ? '\n链接: ' + result.url : ''}`, 'success');
+                this.updateStatus(`发布成功！使用移动端API。${result.message}${result.url ? '\n链接: ' + result.url : ''}`, 'success');
             } else {
                 this.updateStatus(`发布失败: ${result.error}`, 'error');
             }

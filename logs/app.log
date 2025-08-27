@@ -850,3 +850,147 @@
 
 2025-08-17 20:59:58,482 - modules.maimai_api - INFO - 内容发布成功：牛市来了（非JSON响应）
 2025-08-17 20:59:58,482 - werkzeug - INFO - 127.0.0.1 - - [17/Aug/2025 20:59:58] "POST /api/publish HTTP/1.1" 200 -
+2025-08-26 17:53:06,226 - __main__ - INFO - 启动脉脉自动发布系统
+2025-08-26 17:53:06,319 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.1.34:5000
+2025-08-26 17:53:06,319 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-08-26 17:53:06,339 - werkzeug - INFO -  * Restarting with watchdog (windowsapi)
+2025-08-26 17:53:06,893 - __main__ - INFO - 启动脉脉自动发布系统
+2025-08-26 17:53:06,917 - werkzeug - WARNING -  * Debugger is active!
+2025-08-26 17:53:06,928 - werkzeug - INFO -  * Debugger PIN: 769-792-889
+2025-08-26 17:53:13,823 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 17:53:13] "[36mGET / HTTP/1.1[0m" 304 -
+2025-08-26 17:53:13,855 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 17:53:13] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-08-26 17:53:13,857 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 17:53:13] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-08-26 17:53:13,934 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 17:53:13] "GET /api/config HTTP/1.1" 200 -
+2025-08-26 17:53:13,972 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 17:53:13] "GET /api/prompts HTTP/1.1" 200 -
+2025-08-26 17:53:13,993 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 17:53:13] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2025-08-26 17:53:14,025 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 17:53:14] "GET /api/chats HTTP/1.1" 200 -
+2025-08-26 17:53:14,106 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 17:53:14] "GET /api/drafts HTTP/1.1" 200 -
+2025-08-26 17:53:29,012 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 17:53:29] "GET /api/chats HTTP/1.1" 200 -
+2025-08-26 17:54:02,550 - __main__ - INFO - 开始对话生成，消息数：1
+2025-08-26 17:54:08,362 - modules.ai_generator - ERROR - AI API请求失败：429 - {"error":{"message":"当前分组上游负载已饱和，请稍后再试 (request id: 20250826175405533996558QcHiZGrf)","type":"","param":"","code":429}}
+2025-08-26 17:54:08,363 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 17:54:08] "POST /api/generate HTTP/1.1" 200 -
+2025-08-26 17:54:12,583 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 17:54:12] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-08-26 17:54:12,600 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 17:54:12] "[33mGET /.well-known/appspecific/com.chrome.devtools.json HTTP/1.1[0m" 404 -
+2025-08-26 17:54:33,161 - werkzeug - INFO -  * Detected change in 'C:\\Users\\codcod\\AppData\\Roaming\\Python\\Python310\\site-packages\\dotenv\\__init__.py', reloading
+2025-08-26 17:54:33,188 - werkzeug - INFO -  * Detected change in 'C:\\Users\\codcod\\AppData\\Roaming\\Python\\Python310\\site-packages\\dotenv\\main.py', reloading
+2025-08-26 17:54:34,226 - werkzeug - INFO -  * Restarting with watchdog (windowsapi)
+2025-08-26 17:54:34,746 - __main__ - INFO - 启动脉脉自动发布系统
+2025-08-26 17:54:34,774 - werkzeug - WARNING -  * Debugger is active!
+2025-08-26 17:54:34,780 - werkzeug - INFO -  * Debugger PIN: 769-792-889
+2025-08-26 17:55:00,371 - __main__ - INFO - 开始对话生成，消息数：2
+2025-08-26 17:55:05,709 - modules.ai_generator - ERROR - AI API请求失败：429 - {"error":{"message":"当前分组上游负载已饱和，请稍后再试 (request id: 20250826175502923510439zkldkv4p)","type":"","param":"","code":429}}
+2025-08-26 17:55:05,712 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 17:55:05] "POST /api/generate HTTP/1.1" 200 -
+2025-08-26 17:56:13,585 - werkzeug - INFO -  * Detected change in 'D:\\Projects\\maimaichat\\maimaichat\\config.py', reloading
+2025-08-26 17:56:24,557 - __main__ - INFO - 启动脉脉自动发布系统
+2025-08-26 17:56:24,593 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.1.34:5000
+2025-08-26 17:56:24,594 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-08-26 17:56:24,606 - werkzeug - INFO -  * Restarting with watchdog (windowsapi)
+2025-08-26 17:56:25,090 - __main__ - INFO - 启动脉脉自动发布系统
+2025-08-26 17:56:25,112 - werkzeug - WARNING -  * Debugger is active!
+2025-08-26 17:56:25,119 - werkzeug - INFO -  * Debugger PIN: 769-792-889
+2025-08-26 17:56:33,335 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 17:56:33] "[36mGET / HTTP/1.1[0m" 304 -
+2025-08-26 17:56:33,362 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 17:56:33] "[33mGET /.well-known/appspecific/com.chrome.devtools.json HTTP/1.1[0m" 404 -
+2025-08-26 17:56:33,376 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 17:56:33] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-08-26 17:56:33,380 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 17:56:33] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-08-26 17:56:33,402 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 17:56:33] "GET /api/config HTTP/1.1" 200 -
+2025-08-26 17:56:33,459 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 17:56:33] "GET /api/prompts HTTP/1.1" 200 -
+2025-08-26 17:56:33,543 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 17:56:33] "GET /api/chats HTTP/1.1" 200 -
+2025-08-26 17:56:33,553 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 17:56:33] "GET /api/drafts HTTP/1.1" 200 -
+2025-08-26 17:56:50,554 - __main__ - INFO - 开始对话生成，消息数：2
+2025-08-26 17:56:51,388 - modules.ai_generator - ERROR - AI API请求异常：Expecting value: line 1 column 1 (char 0)
+2025-08-26 17:56:51,390 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 17:56:51] "POST /api/generate HTTP/1.1" 200 -
+2025-08-26 17:57:05,017 - werkzeug - INFO -  * Detected change in 'D:\\Projects\\maimaichat\\maimaichat\\config.py', reloading
+2025-08-26 17:57:05,018 - werkzeug - INFO -  * Detected change in 'D:\\Projects\\maimaichat\\maimaichat\\config.py', reloading
+2025-08-26 17:57:06,065 - werkzeug - INFO -  * Restarting with watchdog (windowsapi)
+2025-08-26 17:57:06,597 - __main__ - INFO - 启动脉脉自动发布系统
+2025-08-26 17:57:06,621 - werkzeug - WARNING -  * Debugger is active!
+2025-08-26 17:57:06,629 - werkzeug - INFO -  * Debugger PIN: 769-792-889
+2025-08-26 17:57:12,423 - __main__ - INFO - 开始对话生成，消息数：3
+2025-08-26 17:57:32,667 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 17:57:32] "POST /api/generate HTTP/1.1" 200 -
+2025-08-26 17:58:40,541 - __main__ - INFO - 开始对话生成，消息数：5
+2025-08-26 17:59:01,891 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 17:59:01] "POST /api/generate HTTP/1.1" 200 -
+2025-08-27 20:13:13,420 - __main__ - INFO - 启动脉脉自动发布系统
+2025-08-27 20:13:13,800 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.1.34:5000
+2025-08-27 20:13:13,800 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-08-27 20:13:13,820 - werkzeug - INFO -  * Restarting with watchdog (windowsapi)
+2025-08-27 20:13:14,276 - __main__ - INFO - 启动脉脉自动发布系统
+2025-08-27 20:13:14,296 - werkzeug - WARNING -  * Debugger is active!
+2025-08-27 20:13:14,306 - werkzeug - INFO -  * Debugger PIN: 769-792-889
+2025-08-27 20:13:17,693 - werkzeug - INFO - 127.0.0.1 - - [27/Aug/2025 20:13:17] "GET / HTTP/1.1" 200 -
+2025-08-27 20:13:17,771 - werkzeug - INFO - 127.0.0.1 - - [27/Aug/2025 20:13:17] "GET /static/css/style.css HTTP/1.1" 200 -
+2025-08-27 20:13:17,771 - werkzeug - INFO - 127.0.0.1 - - [27/Aug/2025 20:13:17] "GET /static/js/main.js HTTP/1.1" 200 -
+2025-08-27 20:13:17,888 - werkzeug - INFO - 127.0.0.1 - - [27/Aug/2025 20:13:17] "GET /api/config HTTP/1.1" 200 -
+2025-08-27 20:13:17,933 - werkzeug - INFO - 127.0.0.1 - - [27/Aug/2025 20:13:17] "GET /api/prompts HTTP/1.1" 200 -
+2025-08-27 20:13:17,956 - werkzeug - INFO - 127.0.0.1 - - [27/Aug/2025 20:13:17] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2025-08-27 20:13:17,988 - werkzeug - INFO - 127.0.0.1 - - [27/Aug/2025 20:13:17] "GET /api/chats HTTP/1.1" 200 -
+2025-08-27 20:13:18,080 - werkzeug - INFO - 127.0.0.1 - - [27/Aug/2025 20:13:18] "GET /api/drafts HTTP/1.1" 200 -
+2025-08-27 20:14:40,660 - __main__ - INFO - 开始对话生成，消息数：2
+2025-08-27 20:15:15,390 - werkzeug - INFO - 127.0.0.1 - - [27/Aug/2025 20:15:15] "POST /api/generate HTTP/1.1" 200 -
+2025-08-27 20:16:35,245 - __main__ - INFO - 开始对话生成，消息数：4
+2025-08-27 20:16:54,544 - werkzeug - INFO - 127.0.0.1 - - [27/Aug/2025 20:16:54] "POST /api/generate HTTP/1.1" 200 -
+2025-08-27 20:17:49,562 - __main__ - INFO - 获取话题信息：https://maimai.cn/n/content/global-topic?circle_type=9&topic_id=zGMekSRN
+2025-08-27 20:17:49,563 - modules.maimai_api - INFO - 开始获取话题信息，topic_id: zGMekSRN
+2025-08-27 20:17:49,563 - modules.maimai_api - INFO - 请求URL: https://maimai.cn/n/content/global-topic?circle_type=9&topic_id=zGMekSRN
+2025-08-27 20:17:49,565 - modules.maimai_api - INFO - 发送请求头: {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36', 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8', 'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8', 'Accept-Encoding': 'gzip, deflate, br', 'Connection': 'keep-alive', 'Upgrade-Insecure-Requests': '1'}
+2025-08-27 20:17:49,935 - modules.maimai_api - INFO - 响应状态码: 200
+2025-08-27 20:17:49,936 - modules.maimai_api - INFO - 响应头: {'Date': 'Wed, 27 Aug 2025 12:17:53 GMT', 'Content-Type': 'text/html; charset=utf-8', 'Transfer-Encoding': 'chunked', 'Connection': 'keep-alive', 'Set-Cookie': 'HWWAFSESID=8ad0bc745a099fb501; path=/, HWWAFSESTIME=1756297069675; path=/, seid=s1756297073270; Expires=Thu, 28-Aug-25 12:17:53 GMT; Max-Age=86400; Domain=maimai.cn; Path=/, guid=GxgeBBgeGgQcHgQbEh5WBxgbHhgfEhMZGRxWHBkEHRkfBUNYS0xLeQoeGBsEGB0eHgQaBBsTBU9HRVhCaQoDRUFJT20KT0FDRgoGZmd+YmECChwZBB0ZHwVeQ2FIT31PRlpaawoDHhxSChEeHERDfQoRGgQaGwp+ZApZXUVOREN9AgoaBB8FS0ZGQ1BFZw==; Expires=Mon, 01-Sep-25 12:17:53 GMT; Max-Age=432000; Domain=maimai.cn; Path=/, n_csrf_token=M2XrPN7G-eK6k_eLPZaGrsKkcAZkrbLGcy6M; path=/, n_csrf_token.sig=WWo4p595PZpzctJwbHHO4gxoWR8; path=/, _buuid=gj1PuegA2AlNQC8HUnHyb; path=/; expires=Thu, 27 Aug 2026 12:17:53 GMT, _buuid.sig=3Y2IFX9xjIGBcb4nG8w0YV6s36k; path=/; expires=Thu, 27 Aug 2026 12:17:53 GMT, koa.sess=eyJzZWNyZXQiOiJVNlZ4NGxhdml5VXk0RFJqTDBFajVfb2YiLCJjc3JmX3Rva2VuIjoiTTJYclBON0ctZUs2a19lTFBaYUdyc0trY0Faa3JiTEdjeTZNIiwiX2V4cGlyZSI6MTc1NjM4MzQ3MzI3MiwiX21heEFnZSI6ODY0MDAwMDB9; path=/, koa.sess.sig=prSoZykokhBpwFuzQulQIKsgynI; path=/', 'X-Powered-By': 'Next.js', 'Cache-Control': 'private, no-cache, no-store, max-age=0, must-revalidate', 'ETag': '"14zpqu7t6vs1nx0"', 'Vary': 'Accept-Encoding', 'Content-Encoding': 'gzip', 'X-Frame-Options': 'sameorigin', 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload', 'Server': 'CW'}
+2025-08-27 20:17:49,937 - modules.maimai_api - INFO - HTML内容长度: 77652
+2025-08-27 20:17:49,938 - modules.maimai_api - INFO - HTML内容前500字符: <!DOCTYPE html><html lang="zh-CN"><head><meta charSet="utf-8" data-next-head=""/><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" data-next-head=""/><title data-next-head="">打工人，你的工资都去哪儿了？ - 脉脉</title><link rel="icon" href="/n/content/favicon.ico" data-next-head=""/><meta name="renderer" content="webkit" data-next-head=""/><meta name="force-rendering" content="webkit" data-next-head=""/><meta name="description" content="你的工资都花在了哪里？来聊聊消费去向" 
+2025-08-27 20:17:49,940 - modules.maimai_api - INFO - 开始解析HTML内容
+2025-08-27 20:17:49,941 - modules.maimai_api - INFO - 找到标题（模式: <title[^>]*>([^<]+)</title>）: 打工人，你的工资都去哪儿了？ - 脉脉
+2025-08-27 20:17:49,942 - modules.maimai_api - INFO - 找到描述（模式: <meta\s+name=["\']description["\']\s+content=["\']([^"\']+)["\']）: 你的工资都花在了哪里？来聊聊消费去向
+2025-08-27 20:17:49,958 - modules.maimai_api - INFO - 解析结果: {'title': '打工人，你的工资都去哪儿了？ - 脉脉', 'description': '你的工资都花在了哪里？来聊聊消费去向', 'participant_count': 0}
+2025-08-27 20:17:49,959 - modules.maimai_api - INFO - 成功解析话题信息: {'title': '打工人，你的工资都去哪儿了？ - 脉脉', 'description': '你的工资都花在了哪里？来聊聊消费去向', 'participant_count': 0}
+2025-08-27 20:17:49,961 - werkzeug - INFO - 127.0.0.1 - - [27/Aug/2025 20:17:49] "POST /api/topic-info HTTP/1.1" 200 -
+2025-08-27 20:17:58,651 - __main__ - INFO - 开始发布内容：月入多少才能存钱
+2025-08-27 20:17:58,653 - modules.maimai_api - INFO - 准备发布内容到脉脉
+2025-08-27 20:17:58,653 - modules.maimai_api - INFO - 内容长度：525
+2025-08-27 20:17:59,168 - modules.maimai_api - INFO - 响应状态码: 200
+2025-08-27 20:17:59,170 - modules.maimai_api - INFO - 响应内容: {"gossip":{"id":35615999,"egid":"4827cdccb57f49fc9397e8bc8d4c97b5","encode_id":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlZ2lkIjoiNDgyN2NkY2NiNTdmNDlmYzkzOTdlOGJjOGQ0Yzk3YjUiLCJpZCI6MzU2MTU5OTksInUiOjI...
+2025-08-27 20:17:59,171 - modules.maimai_api - INFO - 内容发布成功
+2025-08-27 20:17:59,174 - werkzeug - INFO - 127.0.0.1 - - [27/Aug/2025 20:17:59] "POST /api/publish HTTP/1.1" 200 -
+2025-08-27 20:26:14,452 - werkzeug - INFO -  * Detected change in 'C:\\Users\\codcod\\AppData\\Roaming\\Python\\Python310\\site-packages\\werkzeug\\_internal.py', reloading
+2025-08-27 20:26:14,469 - werkzeug - INFO -  * Detected change in 'C:\\Users\\codcod\\AppData\\Roaming\\Python\\Python310\\site-packages\\werkzeug\\utils.py', reloading
+2025-08-27 20:26:14,472 - werkzeug - INFO -  * Detected change in 'C:\\Users\\codcod\\AppData\\Roaming\\Python\\Python310\\site-packages\\werkzeug\\sansio\\request.py', reloading
+2025-08-27 20:26:14,474 - werkzeug - INFO -  * Detected change in 'C:\\Users\\codcod\\AppData\\Roaming\\Python\\Python310\\site-packages\\werkzeug\\wrappers\\request.py', reloading
+2025-08-27 20:26:14,474 - werkzeug - INFO -  * Detected change in 'C:\\Users\\codcod\\AppData\\Roaming\\Python\\Python310\\site-packages\\werkzeug\\sansio\\response.py', reloading
+2025-08-27 20:26:14,475 - werkzeug - INFO -  * Detected change in 'C:\\Users\\codcod\\AppData\\Roaming\\Python\\Python310\\site-packages\\werkzeug\\wrappers\\response.py', reloading
+2025-08-27 20:26:14,476 - werkzeug - INFO -  * Detected change in 'C:\\Users\\codcod\\AppData\\Roaming\\Python\\Python310\\site-packages\\werkzeug\\wrappers\\__init__.py', reloading
+2025-08-27 20:26:14,478 - werkzeug - INFO -  * Detected change in 'C:\\Users\\codcod\\AppData\\Roaming\\Python\\Python310\\site-packages\\flask\\globals.py', reloading
+2025-08-27 20:26:14,480 - werkzeug - INFO -  * Detected change in 'C:\\Users\\codcod\\AppData\\Roaming\\Python\\Python310\\site-packages\\flask\\json\\__init__.py', reloading
+2025-08-27 20:26:14,498 - werkzeug - INFO -  * Detected change in 'C:\\Users\\codcod\\AppData\\Roaming\\Python\\Python310\\site-packages\\flask\\typing.py', reloading
+2025-08-27 20:26:14,500 - werkzeug - INFO -  * Detected change in 'C:\\Users\\codcod\\AppData\\Roaming\\Python\\Python310\\site-packages\\flask\\config.py', reloading
+2025-08-27 20:26:14,502 - werkzeug - INFO -  * Detected change in 'C:\\Users\\codcod\\AppData\\Roaming\\Python\\Python310\\site-packages\\flask\\scaffold.py', reloading
+2025-08-27 20:26:14,512 - werkzeug - INFO -  * Detected change in 'C:\\Users\\codcod\\AppData\\Roaming\\Python\\Python310\\site-packages\\flask\\wrappers.py', reloading
+2025-08-27 20:26:14,514 - werkzeug - INFO -  * Detected change in 'C:\\Users\\codcod\\AppData\\Roaming\\Python\\Python310\\site-packages\\flask\\app.py', reloading
+2025-08-27 20:26:14,516 - werkzeug - INFO -  * Detected change in 'C:\\Users\\codcod\\AppData\\Roaming\\Python\\Python310\\site-packages\\flask\\__init__.py', reloading
+2025-08-27 20:26:16,648 - werkzeug - INFO -  * Restarting with watchdog (windowsapi)
+2025-08-27 20:26:17,116 - __main__ - INFO - 启动脉脉自动发布系统
+2025-08-27 20:26:17,139 - werkzeug - WARNING -  * Debugger is active!
+2025-08-27 20:26:17,148 - werkzeug - INFO -  * Debugger PIN: 769-792-889
+2025-08-27 20:27:41,328 - werkzeug - INFO -  * Detected change in 'D:\\Projects\\maimaichat\\maimaichat\\modules\\maimai_api.py', reloading
+2025-08-27 20:27:41,329 - werkzeug - INFO -  * Detected change in 'D:\\Projects\\maimaichat\\maimaichat\\modules\\maimai_api.py.tmp.21872.1756297661325', reloading
+2025-08-27 20:27:42,372 - werkzeug - INFO -  * Restarting with watchdog (windowsapi)
+2025-08-27 20:27:42,898 - __main__ - INFO - 启动脉脉自动发布系统
+2025-08-27 20:27:42,925 - werkzeug - WARNING -  * Debugger is active!
+2025-08-27 20:27:42,936 - werkzeug - INFO -  * Debugger PIN: 769-792-889
+2025-08-27 20:28:15,610 - werkzeug - INFO -  * Detected change in 'D:\\Projects\\maimaichat\\maimaichat\\modules\\maimai_api.py', reloading
+2025-08-27 20:28:15,611 - werkzeug - INFO -  * Detected change in 'D:\\Projects\\maimaichat\\maimaichat\\modules\\maimai_api.py.tmp.21872.1756297695600', reloading
+2025-08-27 20:28:16,730 - werkzeug - INFO -  * Restarting with watchdog (windowsapi)
+2025-08-27 20:28:17,202 - __main__ - INFO - 启动脉脉自动发布系统
+2025-08-27 20:28:17,224 - werkzeug - WARNING -  * Debugger is active!
+2025-08-27 20:28:17,234 - werkzeug - INFO -  * Debugger PIN: 769-792-889
+2025-08-27 20:28:37,509 - werkzeug - INFO -  * Detected change in 'D:\\Projects\\maimaichat\\maimaichat\\test_topic.py.tmp.21872.1756297717501', reloading
+2025-08-27 20:28:38,546 - werkzeug - INFO -  * Restarting with watchdog (windowsapi)
+2025-08-27 20:28:39,040 - __main__ - INFO - 启动脉脉自动发布系统
+2025-08-27 20:28:39,066 - werkzeug - WARNING -  * Debugger is active!
+2025-08-27 20:28:39,075 - werkzeug - INFO -  * Debugger PIN: 769-792-889
