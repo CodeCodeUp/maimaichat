@@ -3,7 +3,8 @@
     "allow": [
       "Bash(python:*)",
       "Bash(set MAIMAI_ACCESS_TOKEN=ec881ead60b43be8bea12b41e28e4454)",
-      "Bash(del test_publish.py)"
+      "Bash(del test_publish.py)",
+      "Bash(git rm:*)"
     ],
     "deny": [],
     "ask": []
