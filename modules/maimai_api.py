@@ -67,6 +67,48 @@ class MaimaiAPI:
             logger.error(f"提取topic_id失败：{str(e)}")
             return None
     
+    def extract_circle_type(self, url: str) -> int:
+        """
+        从话题URL中提取circle_type
+        
+        Args:
+            url: 话题URL
+            
+        Returns:
+            circle_type，默认为9
+        """
+        try:
+            if 'circle_type=' in url:
+                circle_type = url.split('circle_type=')[1].split('&')[0]
+                return int(circle_type)
+        except Exception as e:
+            logger.warning(f"提取circle_type失败：{str(e)}")
+        return 9  # 默认值
+    
+    def extract_topic_name_from_page(self, topic_url: str) -> Optional[str]:
+        """
+        从话题页面中解析话题名称
+        
+        Args:
+            topic_url: 话题URL
+            
+        Returns:
+            话题名称或None
+        """
+        try:
+            # 获取话题信息
+            topic_info = self.get_topic_info(topic_url)
+            if topic_info.get('success'):
+                title = topic_info.get('title', '')
+                # 移除 " - 脉脉" 后缀
+                if title.endswith(' - 脉脉'):
+                    title = title[:-4]
+                return title
+            return None
+        except Exception as e:
+            logger.error(f"从页面解析话题名称失败：{str(e)}")
+            return None
+    
     def extract_topic_info_from_url(self, url: str) -> Optional[Dict[str, Any]]:
         """
         从脉脉话题URL中提取完整话题信息
@@ -97,18 +139,26 @@ class MaimaiAPI:
     def publish_content(self, 
                        title: str, 
                        content: str, 
-                       topic_url: str = "") -> Dict[str, Any]:
+                       topic_url: str) -> Dict[str, Any]:
         """
         发布内容到脉脉（完全基于真实的移动端API请求）
         
         Args:
             title: 文章标题（可选，主要内容在content中）
             content: 要发布的内容
-            topic_url: 话题URL（可选，用于提取话题信息）
+            topic_url: 话题URL（必填，用于提取话题信息）
             
         Returns:
             发布结果字典
         """
+        # 验证话题URL是否提供
+        if not topic_url or not topic_url.strip():
+            logger.error("话题URL为必填参数")
+            return {
+                'success': False,
+                'error': '话题URL为必填参数，请提供有效的话题链接'
+            }
+        
         try:
             # 构建URL参数（使用配置中的设备参数）
             url_params = self.device_params.copy()
@@ -144,28 +194,22 @@ class MaimaiAPI:
                 elif 'topic_id=' in topic_url:
                     try:
                         topic_id = self.extract_topic_id(topic_url)
+                        circle_type = self.extract_circle_type(topic_url)
+                        topic_name = self.extract_topic_name_from_page(topic_url)
+                        
                         if topic_id:
-                            # 构造基本的话题数据结构
+                            # 构造话题数据结构（使用解析到的真实信息）
                             topic_info = {
-                                "tag_id": 0,
                                 "id": topic_id,
-                                "name": f"话题_{topic_id}",
-                                "highlight_name": "",
-                                "score": 0,
-                                "circle_type": 9,
-                                "circle_id": 0,
-                                "desc": "",
-                                "view_cnt": 0,
-                                "feeds_cnt": 0,
-                                "logo": "",
-                                "schema": f"taoumaimai://rct?component=GossipGlobalTopicList&topic_id={topic_id}&circle_type=9"
+                                "name": topic_name or f"话题_{topic_id}",
+                                "circle_type": circle_type
                             }
                             
                             topics_data = [topic_info]
                             url_params['topics'] = json.dumps(topics_data, ensure_ascii=False)
                             url_params['pub_extra'] = json.dumps({"post_topics": topics_data}, ensure_ascii=False)
                             
-                            logger.info(f"构造话题信息成功，topic_id: {topic_id}")
+                            logger.info(f"构造话题信息成功 - ID: {topic_id}, Name: {topic_name}, CircleType: {circle_type}")
                     except Exception as e:
                         logger.warning(f"处理简单话题URL失败：{str(e)}")
             
@@ -173,7 +217,7 @@ class MaimaiAPI:
             endpoint = f"{self.base_url}/sdk/publish"
             full_url = f"{endpoint}?{urlencode(url_params)}"
             
-            # 构建POST数据（复制真实请求的格式）  
+            # 构建POST数据（复制真实请求的格式）
             post_data = {
                 'annoy_type': '5',
                 'is_original': '0',
@@ -185,15 +229,22 @@ class MaimaiAPI:
                 }, ensure_ascii=False),
                 'username_type': '5',
                 'at_users': '{}',
-                'fr': 'mainpage_701_101',
-                'container_id': '-4001', 
+                'fr': 'topic_detail' if topic_url else 'mainpage_701_101',
+                'container_id': '-4001',
                 'content': content,  # 这里是实际要发布的内容
                 'hash': str(int(time.time() * 1000)),
-                'target': 'post_pub'
+                'target': 'topic_detail_post_pub' if topic_url else 'post_pub'
             }
+            
+            # 如果有标题，添加title字段
+            if title and title.strip():
+                post_data['title'] = title.strip()
+                logger.info(f"添加标题: {title}")
             
             logger.info(f"准备发布内容到脉脉")
             logger.info(f"内容长度：{len(content)}")
+            if title:
+                logger.info(f"标题：{title}")
             
             # 发送请求（使用真实的请求头）
             response = requests.post(
