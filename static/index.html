@@ -38,7 +38,13 @@
                         </button>
                     </div>
                     <div class="row">
-                        <input type="url" id="topic-url" placeholder="话题链接（可选）" class="grow">
+                        <select id="topic-select" class="grow">
+                            <option value="">选择话题（可选）</option>
+                        </select>
+                        <button id="refresh-topics" class="btn-secondary small">刷新</button>
+                    </div>
+                    <div class="row">
+                        <input type="url" id="topic-url" placeholder="或输入话题链接" class="grow">
                         <button id="get-topic-info" class="btn-secondary small">获取信息</button>
                     </div>
                     <textarea id="generated-content" rows="8" placeholder="生成的内容会显示在这里，可编辑后发布"></textarea>
@@ -56,10 +62,63 @@
                     </div>
                 </div>
                 <div class="section">
+                    <div class="section-title">话题管理</div>
+                    <div class="row">
+                        <button id="manage-topics" class="btn-secondary grow">管理话题</button>
+                    </div>
+                </div>
+                <div class="section">
                     <div class="section-title">状态</div>
                     <div id="status-display" class="status-display"><p>等待操作...</p></div>
                 </div>
             </aside>
+        </div>
+    </div>
+
+    <!-- 话题管理弹窗 -->
+    <div id="topic-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>话题管理</h3>
+                <button class="modal-close" id="close-topic-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- 新增话题区域 -->
+                <div class="topic-add-section">
+                    <h4>新增话题</h4>
+                    <div class="row">
+                        <input type="text" id="new-topic-id" placeholder="话题ID" style="width: 120px;">
+                        <input type="text" id="new-topic-name" placeholder="话题名称" class="grow">
+                        <input type="text" id="new-topic-circle" placeholder="圈子类型" style="width: 150px;">
+                        <button id="add-topic-btn" class="btn-primary small">添加</button>
+                    </div>
+                </div>
+
+                <!-- 批量导入区域 -->
+                <div class="topic-batch-section">
+                    <h4>批量导入</h4>
+                    <textarea id="batch-json-input" rows="8" placeholder="粘贴JSON数据，格式：[{&quot;id&quot;: &quot;xxx&quot;, &quot;name&quot;: &quot;xxx&quot;, &quot;circle_type&quot;: 9}, ...]"></textarea>
+                    <div class="row">
+                        <button id="batch-import-btn" class="btn-success small">批量导入</button>
+                        <button id="clear-json-btn" class="btn-secondary small">清空</button>
+                    </div>
+                </div>
+
+                <!-- 话题列表区域 -->
+                <div class="topic-list-section">
+                    <h4>话题列表</h4>
+                    <div class="topic-search-bar">
+                        <input type="text" id="topic-search" placeholder="搜索话题..." class="grow">
+                        <button id="search-topics-btn" class="btn-secondary small">搜索</button>
+                    </div>
+                    <div id="topic-list-container" class="topic-list-container">
+                        <!-- 话题列表动态生成 -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="close-topic-modal-footer" class="btn-secondary">关闭</button>
+            </div>
         </div>
     </div>
 

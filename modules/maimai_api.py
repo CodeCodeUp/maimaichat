@@ -139,25 +139,46 @@ class MaimaiAPI:
     def publish_content(self, 
                        title: str, 
                        content: str, 
-                       topic_url: str) -> Dict[str, Any]:
+                       topic_url: str = None,
+                       topic_id: str = None,
+                       circle_type: str = None,
+                       topic_name: str = None) -> Dict[str, Any]:
         """
         发布内容到脉脉（完全基于真实的移动端API请求）
         
         Args:
             title: 文章标题（可选，主要内容在content中）
             content: 要发布的内容
-            topic_url: 话题URL（必填，用于提取话题信息）
+            topic_url: 话题URL（可选，与topic_id二选一）
+            topic_id: 话题ID（可选，与topic_url二选一）
+            circle_type: 圈子类型（当使用topic_id时必填）
+            topic_name: 话题名称（当使用topic_id时传入，避免重新查询）
             
         Returns:
             发布结果字典
         """
-        # 验证话题URL是否提供
-        if not topic_url or not topic_url.strip():
-            logger.error("话题URL为必填参数")
-            return {
-                'success': False,
-                'error': '话题URL为必填参数，请提供有效的话题链接'
-            }
+        # 验证参数：topic_url 或 (topic_id + circle_type) 必须提供其中一种
+        if topic_url:
+            # 使用话题链接模式，从URL提取话题信息
+            extracted_topic_id = self.extract_topic_id(topic_url)
+            if not extracted_topic_id:
+                return {
+                    'success': False,
+                    'error': '无法从话题URL中提取话题ID'
+                }
+            final_topic_id = extracted_topic_id
+            final_circle_type = str(self.extract_circle_type(topic_url))
+            logger.info(f"从URL提取话题信息 - ID: {final_topic_id}, circle_type: {final_circle_type}")
+        elif topic_id and circle_type:
+            # 使用直接传参模式
+            final_topic_id = topic_id
+            final_circle_type = str(circle_type)
+            logger.info(f"使用传入话题信息 - ID: {final_topic_id}, circle_type: {final_circle_type}")
+        else:
+            # 无话题发布
+            logger.warning("未提供话题信息，尝试无话题发布")
+            final_topic_id = None
+            final_circle_type = None
         
         try:
             # 构建URL参数（使用配置中的设备参数）
@@ -172,46 +193,63 @@ class MaimaiAPI:
             url_params['pub_setting'] = '{"cmty_identity":1}'
             url_params['pub_extra'] = '{"post_topics":[]}'
             
-            # 如果有话题URL，尝试提取话题信息
-            if topic_url:
-                # 优先尝试从复杂URL格式中提取完整话题信息
-                if 'topics=' in topic_url:
-                    try:
-                        topics_param = topic_url.split('topics=')[1].split('&')[0]
-                        topics_decoded = urllib.parse.unquote(topics_param)
-                        # 直接使用解码后的话题数据
-                        url_params['topics'] = topics_decoded
-                        
-                        # 同时更新pub_extra
-                        topics_data = json.loads(topics_decoded)
-                        url_params['pub_extra'] = json.dumps({"post_topics": topics_data}, ensure_ascii=False)
-                        
-                        logger.info(f"提取到完整话题信息，话题数量：{len(topics_data)}")
-                    except Exception as e:
-                        logger.warning(f"解析复杂话题信息失败：{str(e)}")
-                        
-                # 处理简单URL格式（如：https://maimai.cn/n/content/global-topic?topic_id=zGMekSRN）
-                elif 'topic_id=' in topic_url:
-                    try:
-                        topic_id = self.extract_topic_id(topic_url)
-                        circle_type = self.extract_circle_type(topic_url)
+            # 如果有话题信息，构造话题参数
+            if final_topic_id and final_circle_type:
+                try:
+                    # 如果是从URL提取的，尝试获取话题名称
+                    if topic_url:
                         topic_name = self.extract_topic_name_from_page(topic_url)
                         
-                        if topic_id:
-                            # 构造话题数据结构（使用解析到的真实信息）
+                        # 优先尝试从复杂URL格式中提取完整话题信息
+                        if 'topics=' in topic_url:
+                            try:
+                                topics_param = topic_url.split('topics=')[1].split('&')[0]
+                                topics_decoded = urllib.parse.unquote(topics_param)
+                                # 直接使用解码后的话题数据
+                                url_params['topics'] = topics_decoded
+                                
+                                # 同时更新pub_extra
+                                topics_data = json.loads(topics_decoded)
+                                url_params['pub_extra'] = json.dumps({"post_topics": topics_data}, ensure_ascii=False)
+                                
+                                logger.info(f"提取到完整话题信息，话题数量：{len(topics_data)}")
+                            except Exception as e:
+                                logger.warning(f"解析复杂话题信息失败，使用基础话题信息：{str(e)}")
+                                # 构造基础话题数据结构
+                                topic_info = {
+                                    "id": final_topic_id,
+                                    "name": topic_name or f"话题_{final_topic_id}",
+                                    "circle_type": int(final_circle_type)
+                                }
+                                topics_data = [topic_info]
+                                url_params['topics'] = json.dumps(topics_data, ensure_ascii=False)
+                                url_params['pub_extra'] = json.dumps({"post_topics": topics_data}, ensure_ascii=False)
+                        else:
+                            # 构造基础话题数据结构
                             topic_info = {
-                                "id": topic_id,
-                                "name": topic_name or f"话题_{topic_id}",
-                                "circle_type": circle_type
+                                "id": final_topic_id,
+                                "name": topic_name or f"话题_{final_topic_id}",
+                                "circle_type": int(final_circle_type)
                             }
-                            
                             topics_data = [topic_info]
                             url_params['topics'] = json.dumps(topics_data, ensure_ascii=False)
                             url_params['pub_extra'] = json.dumps({"post_topics": topics_data}, ensure_ascii=False)
                             
-                            logger.info(f"构造话题信息成功 - ID: {topic_id}, Name: {topic_name}, CircleType: {circle_type}")
-                    except Exception as e:
-                        logger.warning(f"处理简单话题URL失败：{str(e)}")
+                            logger.info(f"构造话题信息成功 - ID: {final_topic_id}, Name: {topic_name}, CircleType: {final_circle_type}")
+                    else:
+                        # 使用传入的话题ID和circle_type（来自话题选择）
+                        topic_info = {
+                            "id": final_topic_id,
+                            "name": topic_name or f"话题_{final_topic_id}",  # 优先使用传入的真实名称
+                            "circle_type": int(final_circle_type)
+                        }
+                        topics_data = [topic_info]
+                        url_params['topics'] = json.dumps(topics_data, ensure_ascii=False)
+                        url_params['pub_extra'] = json.dumps({"post_topics": topics_data}, ensure_ascii=False)
+                        
+                        logger.info(f"使用选择的话题信息 - ID: {final_topic_id}, Name: {topic_name}, CircleType: {final_circle_type}")
+                except Exception as e:
+                    logger.warning(f"处理话题信息失败：{str(e)}")
             
             # 构建完整URL
             endpoint = f"{self.base_url}/sdk/publish"
@@ -229,11 +267,11 @@ class MaimaiAPI:
                 }, ensure_ascii=False),
                 'username_type': '5',
                 'at_users': '{}',
-                'fr': 'topic_detail' if topic_url else 'mainpage_701_101',
+                'fr': 'topic_detail' if final_topic_id else 'mainpage_701_101',
                 'container_id': '-4001',
                 'content': content,  # 这里是实际要发布的内容
                 'hash': str(int(time.time() * 1000)),
-                'target': 'topic_detail_post_pub' if topic_url else 'post_pub'
+                'target': 'topic_detail_post_pub' if final_topic_id else 'post_pub'
             }
             
             # 如果有标题，添加title字段

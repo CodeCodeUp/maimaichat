@@ -6,6 +6,8 @@ class MaimaiPublisher {
         this.prompts = {};
         this.currentPrompt = '';
         this.currentPromptKey = '';
+        this.topics = [];
+        this.selectedTopicId = '';
         this.initializeElements();
         this.bindEvents();
         this.bootstrap();
@@ -20,10 +22,28 @@ class MaimaiPublisher {
 
         // 发布区域
         this.titleInput = document.getElementById('title');
+        this.topicSelect = document.getElementById('topic-select');
         this.topicUrlInput = document.getElementById('topic-url');
+        this.refreshTopicsBtn = document.getElementById('refresh-topics');
         this.generatedContentTextarea = document.getElementById('generated-content');
         this.publishBtn = document.getElementById('publish-btn');
         this.clearBtn = document.getElementById('clear-btn');
+
+        // 话题管理
+        this.manageTopicsBtn = document.getElementById('manage-topics');
+        this.topicModal = document.getElementById('topic-modal');
+        this.closeTopicModalBtn = document.getElementById('close-topic-modal');
+        this.closeTopicModalFooterBtn = document.getElementById('close-topic-modal-footer');
+        this.newTopicIdInput = document.getElementById('new-topic-id');
+        this.newTopicNameInput = document.getElementById('new-topic-name');
+        this.newTopicCircleInput = document.getElementById('new-topic-circle');
+        this.addTopicBtn = document.getElementById('add-topic-btn');
+        this.topicSearchInput = document.getElementById('topic-search');
+        this.searchTopicsBtn = document.getElementById('search-topics-btn');
+        this.topicListContainer = document.getElementById('topic-list-container');
+        this.batchJsonInput = document.getElementById('batch-json-input');
+        this.batchImportBtn = document.getElementById('batch-import-btn');
+        this.clearJsonBtn = document.getElementById('clear-json-btn');
 
         // 提示词管理
         this.promptSelect = document.getElementById('prompt-select');
@@ -61,6 +81,30 @@ class MaimaiPublisher {
         this.clearBtn?.addEventListener('click', () => this.clearContent());
         this.getTopicInfoBtn?.addEventListener('click', () => this.getTopicInfo());
         this.generatedContentTextarea?.addEventListener('input', () => this.updatePublishButton());
+        this.refreshTopicsBtn?.addEventListener('click', () => this.loadTopics());
+        this.topicSelect?.addEventListener('change', () => this.onTopicSelectChange());
+        this.topicUrlInput?.addEventListener('input', () => this.onTopicUrlInput());
+
+        // 话题管理
+        this.manageTopicsBtn?.addEventListener('click', () => this.openTopicModal());
+        this.closeTopicModalBtn?.addEventListener('click', () => this.closeTopicModal());
+        this.closeTopicModalFooterBtn?.addEventListener('click', () => this.closeTopicModal());
+        this.addTopicBtn?.addEventListener('click', () => this.addTopic());
+        this.searchTopicsBtn?.addEventListener('click', () => this.searchTopics());
+        this.batchImportBtn?.addEventListener('click', () => this.batchImportTopics());
+        this.clearJsonBtn?.addEventListener('click', () => this.clearJsonInput());
+        this.topicSearchInput?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                this.searchTopics();
+            }
+        });
+        
+        // 点击话题弹窗外部关闭
+        this.topicModal?.addEventListener('click', (e) => {
+            if (e.target === this.topicModal) {
+                this.closeTopicModal();
+            }
+        });
 
         // 提示词管理
         this.applyPromptBtn?.addEventListener('click', () => this.applySelectedPrompt());
@@ -84,6 +128,7 @@ class MaimaiPublisher {
     async bootstrap() {
         this.initializeButtonStates();
         await this.loadPrompts();
+        await this.loadTopics();
         this.addSystemMessage(this.currentPrompt || '你是一个资深新媒体编辑，擅长将话题梳理成适合脉脉的内容。');
         this.updatePublishButton();
         this.updateStatus('系统初始化完成，已配置移动端API发布模式', 'success');
@@ -376,9 +421,17 @@ class MaimaiPublisher {
         const title = this.titleInput?.value.trim();
         const content = this.generatedContentTextarea?.value.trim();
         const topicUrl = this.topicUrlInput?.value.trim();
+        const selectedTopicId = this.selectedTopicId;
 
         if (!title || !content) {
             this.updateStatus('请确保标题和内容都已填写', 'error');
+            return;
+        }
+
+        // 检查话题选择：由于UI已经做了互斥处理，这里只需要简单验证
+        if (selectedTopicId && topicUrl) {
+            // 这种情况理论上不应该发生，但保留检查
+            this.updateStatus('系统错误：话题选择状态异常', 'error');
             return;
         }
 
@@ -386,16 +439,34 @@ class MaimaiPublisher {
         this.updateStatus('正在发布到脉脉...', 'info');
 
         try {
+            let publishData = { title, content };
+            
+            if (selectedTopicId) {
+                // 使用选择的话题
+                const selectedTopic = this.topics.find(t => t.id === selectedTopicId);
+                if (selectedTopic) {
+                    publishData.topic_id = selectedTopic.id;
+                    publishData.circle_type = selectedTopic.circle_type;
+                    this.updateStatus(`使用选择的话题: ${selectedTopic.name}`, 'info');
+                }
+            } else if (topicUrl) {
+                // 使用链接提取
+                publishData.topic_url = topicUrl;
+                this.updateStatus('使用话题链接进行发布', 'info');
+            } else {
+                this.updateStatus('无话题发布', 'info');
+            }
+
             const response = await fetch('/api/publish', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title, content, topic_url: topicUrl }),
+                body: JSON.stringify(publishData),
                 signal: AbortSignal.timeout(180000) // 3分钟超时
             });
             const result = await response.json();
             
             if (result.success) {
-                this.updateStatus(`发布成功！使用移动端API。${result.message}${result.url ? '\n链接: ' + result.url : ''}`, 'success');
+                this.updateStatus(`发布成功！${result.message}${result.url ? '\n链接: ' + result.url : ''}`, 'success');
             } else {
                 this.updateStatus(`发布失败: ${result.error}`, 'error');
             }
@@ -450,6 +521,349 @@ class MaimaiPublisher {
             this.updatePublishButton();
         }
         this.updateStatus('内容已清空', 'success');
+    }
+
+    // ===== 话题管理 =====
+    async loadTopics() {
+        try {
+            const response = await fetch('/api/topics');
+            const result = await response.json();
+            if (result.success) {
+                this.topics = result.data || [];
+                this.updateTopicSelect();
+                this.updateStatus('话题列表加载完成', 'success');
+            } else {
+                this.updateStatus(`话题列表加载失败: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            this.updateStatus(`话题列表加载异常: ${error.message}`, 'error');
+        }
+    }
+
+    updateTopicSelect() {
+        if (!this.topicSelect) return;
+        
+        this.topicSelect.innerHTML = '<option value="">选择话题（可选）</option>';
+        this.topics.forEach(topic => {
+            const option = document.createElement('option');
+            option.value = topic.id;
+            option.textContent = `${topic.name} (ID: ${topic.id}, ${topic.circle_type})`;
+            this.topicSelect.appendChild(option);
+        });
+    }
+
+    onTopicUrlInput() {
+        const hasUrl = this.topicUrlInput?.value.trim();
+        if (hasUrl && this.topicSelect) {
+            // 输入了链接，清空话题选择并禁用
+            this.topicSelect.value = '';
+            this.selectedTopicId = '';
+            this.topicSelect.disabled = true;
+        } else if (this.topicSelect) {
+            // 没有链接，启用话题选择
+            this.topicSelect.disabled = false;
+        }
+    }
+
+    onTopicSelectChange() {
+        this.selectedTopicId = this.topicSelect?.value || '';
+        if (this.selectedTopicId && this.topicUrlInput) {
+            // 选择了话题，清空链接输入框并禁用
+            this.topicUrlInput.value = '';
+            this.topicUrlInput.disabled = true;
+            this.topicUrlInput.placeholder = '已选择话题，链接输入已禁用';
+            if (this.getTopicInfoBtn) {
+                this.getTopicInfoBtn.disabled = true;
+            }
+            
+            // 将话题名称填入标题框
+            const selectedTopic = this.topics.find(t => t.id === this.selectedTopicId);
+            if (selectedTopic && this.titleInput) {
+                this.titleInput.value = selectedTopic.name;
+                this.updateStatus(`已选择话题："${selectedTopic.name}"，名称已填入标题框`, 'success');
+            }
+        } else if (this.topicUrlInput) {
+            // 没有选择话题，启用链接输入框
+            this.topicUrlInput.disabled = false;
+            this.topicUrlInput.placeholder = '或输入话题链接';
+            if (this.getTopicInfoBtn) {
+                this.getTopicInfoBtn.disabled = false;
+            }
+            
+            // 清空标题框（如果之前是话题名称）
+            if (this.titleInput && this.titleInput.value) {
+                const wasTopicName = this.topics.some(t => t.name === this.titleInput.value);
+                if (wasTopicName) {
+                    this.titleInput.value = '';
+                }
+            }
+        }
+    }
+
+    openTopicModal() {
+        if (!this.topicModal) return;
+        this.loadTopicsForModal();
+        this.topicModal.style.display = 'block';
+    }
+
+    closeTopicModal() {
+        if (!this.topicModal) return;
+        this.topicModal.style.display = 'none';
+        if (this.newTopicIdInput) this.newTopicIdInput.value = '';
+        if (this.newTopicNameInput) this.newTopicNameInput.value = '';
+        if (this.newTopicCircleInput) this.newTopicCircleInput.value = '';
+        if (this.topicSearchInput) this.topicSearchInput.value = '';
+        if (this.batchJsonInput) this.batchJsonInput.value = '';
+    }
+
+    async addTopic() {
+        const topicId = this.newTopicIdInput?.value.trim();
+        const name = this.newTopicNameInput?.value.trim();
+        const circleType = this.newTopicCircleInput?.value.trim();
+        
+        if (!topicId || !name || !circleType) {
+            this.updateStatus('请填写话题ID、名称和圈子类型', 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/topics', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: topicId, name, circle_type: circleType })
+            });
+            const result = await response.json();
+            
+            if (result.success) {
+                this.newTopicIdInput.value = '';
+                this.newTopicNameInput.value = '';
+                this.newTopicCircleInput.value = '';
+                this.loadTopicsForModal();
+                this.loadTopics();
+                this.updateStatus('话题添加成功', 'success');
+            } else {
+                this.updateStatus(`话题添加失败: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            this.updateStatus(`话题添加异常: ${error.message}`, 'error');
+        }
+    }
+
+    async loadTopicsForModal() {
+        try {
+            const response = await fetch('/api/topics');
+            const result = await response.json();
+            if (result.success) {
+                this.renderTopicList(result.data || []);
+            }
+        } catch (error) {
+            this.updateStatus(`加载话题失败: ${error.message}`, 'error');
+        }
+    }
+
+    async searchTopics() {
+        const keyword = this.topicSearchInput?.value.trim();
+        if (!keyword) {
+            this.loadTopicsForModal();
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/topics/search?q=${encodeURIComponent(keyword)}`);
+            const result = await response.json();
+            if (result.success) {
+                this.renderTopicList(result.data || []);
+            } else {
+                this.updateStatus(`搜索话题失败: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            this.updateStatus(`搜索话题异常: ${error.message}`, 'error');
+        }
+    }
+
+    renderTopicList(topics) {
+        if (!this.topicListContainer) return;
+        
+        this.topicListContainer.innerHTML = '';
+        topics.forEach(topic => {
+            this.topicListContainer.appendChild(this.createTopicItem(topic));
+        });
+    }
+
+    createTopicItem(topic) {
+        const item = document.createElement('div');
+        item.className = 'topic-item';
+        item.innerHTML = `
+            <div class="topic-item-header">
+                <div class="topic-item-info">
+                    <div class="topic-item-name">${this.escapeHtml(topic.name)} <small>(ID: ${this.escapeHtml(topic.id)})</small></div>
+                    <div class="topic-item-circle">${this.escapeHtml(topic.circle_type)}</div>
+                </div>
+                <div class="topic-item-actions">
+                    <button class="btn-secondary small edit-topic">编辑</button>
+                    <button class="btn-danger small delete-topic">删除</button>
+                </div>
+            </div>
+            <div class="topic-item-edit">
+                <input type="text" class="edit-name" value="${this.escapeHtml(topic.name)}" placeholder="话题名称">
+                <input type="text" class="edit-circle" value="${this.escapeHtml(topic.circle_type)}" placeholder="圈子类型" style="width: 150px;">
+                <button class="btn-success small save-topic">保存</button>
+                <button class="btn-secondary small cancel-edit">取消</button>
+            </div>
+        `;
+
+        // 绑定编辑事件
+        const editBtn = item.querySelector('.edit-topic');
+        const deleteBtn = item.querySelector('.delete-topic');
+        const saveBtn = item.querySelector('.save-topic');
+        const cancelBtn = item.querySelector('.cancel-edit');
+
+        editBtn?.addEventListener('click', () => {
+            item.classList.add('editing');
+        });
+
+        cancelBtn?.addEventListener('click', () => {
+            item.classList.remove('editing');
+        });
+
+        saveBtn?.addEventListener('click', () => {
+            this.updateTopic(topic.id, item);
+        });
+
+        deleteBtn?.addEventListener('click', () => {
+            if (confirm('确定要删除这个话题吗？')) {
+                this.deleteTopic(topic.id);
+            }
+        });
+
+        return item;
+    }
+
+    async updateTopic(topicId, itemElement) {
+        const nameInput = itemElement.querySelector('.edit-name');
+        const circleInput = itemElement.querySelector('.edit-circle');
+        
+        const name = nameInput?.value.trim();
+        const circleType = circleInput?.value.trim();
+        
+        if (!name || !circleType) {
+            this.updateStatus('请填写话题名称和圈子类型', 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/topics/${topicId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, circle_type: circleType })
+            });
+            const result = await response.json();
+            
+            if (result.success) {
+                itemElement.classList.remove('editing');
+                this.loadTopicsForModal();
+                this.loadTopics();
+                this.updateStatus('话题更新成功', 'success');
+            } else {
+                this.updateStatus(`话题更新失败: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            this.updateStatus(`话题更新异常: ${error.message}`, 'error');
+        }
+    }
+
+    async deleteTopic(topicId) {
+        try {
+            const response = await fetch(`/api/topics/${topicId}`, {
+                method: 'DELETE'
+            });
+            const result = await response.json();
+            
+            if (result.success) {
+                this.loadTopicsForModal();
+                this.loadTopics();
+                this.updateStatus('话题删除成功', 'success');
+            } else {
+                this.updateStatus(`话题删除失败: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            this.updateStatus(`话题删除异常: ${error.message}`, 'error');
+        }
+    }
+
+    clearJsonInput() {
+        if (this.batchJsonInput) {
+            this.batchJsonInput.value = '';
+        }
+    }
+
+    async batchImportTopics() {
+        const jsonText = this.batchJsonInput?.value.trim();
+        if (!jsonText) {
+            this.updateStatus('请输入JSON数据', 'error');
+            return;
+        }
+
+        try {
+            // 解析JSON
+            const topicsData = JSON.parse(jsonText);
+            if (!Array.isArray(topicsData)) {
+                this.updateStatus('JSON数据必须是数组格式', 'error');
+                return;
+            }
+
+            if (topicsData.length === 0) {
+                this.updateStatus('JSON数组不能为空', 'error');
+                return;
+            }
+
+            this.setButtonLoading(this.batchImportBtn, true);
+            this.updateStatus(`正在批量导入 ${topicsData.length} 个话题...`, 'info');
+
+            const response = await fetch('/api/topics/batch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ topics: topicsData })
+            });
+            const result = await response.json();
+            
+            if (result.success) {
+                const { summary } = result;
+                let statusText = `批量导入完成！\n总数: ${summary.total}, 成功: ${summary.success}, 失败: ${summary.failed}, 跳过: ${summary.skipped}`;
+                
+                // 显示详细结果
+                if (result.results.failed.length > 0) {
+                    statusText += `\n失败详情: ${result.results.failed.slice(0, 3).map(f => f.error).join(', ')}`;
+                    if (result.results.failed.length > 3) {
+                        statusText += ` 等${result.results.failed.length}个错误`;
+                    }
+                }
+                
+                if (result.results.skipped.length > 0) {
+                    statusText += `\n跳过详情: ${result.results.skipped.slice(0, 3).map(s => s.reason).join(', ')}`;
+                    if (result.results.skipped.length > 3) {
+                        statusText += ` 等${result.results.skipped.length}个`;
+                    }
+                }
+
+                this.updateStatus(statusText, summary.failed > 0 ? 'warning' : 'success');
+                
+                // 清空输入框并刷新列表
+                this.batchJsonInput.value = '';
+                this.loadTopicsForModal();
+                this.loadTopics();
+            } else {
+                this.updateStatus(`批量导入失败: ${result.error}`, 'error');
+            }
+        } catch (parseError) {
+            if (parseError instanceof SyntaxError) {
+                this.updateStatus('JSON格式错误，请检查数据格式', 'error');
+            } else {
+                this.updateStatus(`批量导入异常: ${parseError.message}`, 'error');
+            }
+        } finally {
+            this.setButtonLoading(this.batchImportBtn, false);
+        }
     }
 
     // ===== 工具方法 =====
