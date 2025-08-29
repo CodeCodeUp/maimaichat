@@ -9,6 +9,8 @@ class Config:
     # Flask配置
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
     DEBUG = os.environ.get('FLASK_DEBUG', 'True').lower() == 'true'
+    HOST = '0.0.0.0'
+    PORT = 5000
     
     # AI API配置
     AI_CONFIG = {
@@ -54,14 +56,6 @@ class Config:
             'Accept-Encoding': 'gzip',
             'x-maimai-reqid': '30e2bc243fac46539e909165121b99ee'
         }
-    }
-    
-    # 默认提示词模板
-    DEFAULT_PROMPTS = {
-        "职场话题": "请根据以下话题生成一篇适合在脉脉发布的职场讨论文章，语言要贴近职场人士，内容要有深度和思考性：",
-        "情感话题": "请根据以下话题生成一篇适合在脉脉发布的情感话题文章，语言要温暖真诚，能引起共鸣：",
-        "生活话题": "请根据以下话题生成一篇适合在脉脉发布的生活分享文章，语言要轻松自然，贴近生活：",
-        "自定义": ""
     }
     
     # 日志配置

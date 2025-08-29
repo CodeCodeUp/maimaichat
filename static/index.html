@@ -10,33 +10,9 @@
     <div class="container">
         <div class="topbar">
             <div class="brand">🚀 Maimai Publisher</div>
-            <div class="actions">
-                <button id="test-connection" class="btn-secondary small">
-                    <span class="icon">🔌</span>
-                    <span>连接测试</span>
-                </button>
-            </div>
         </div>
 
         <div class="layout">
-            <aside class="sidebar">
-                <div class="section">
-                    <div class="section-title">会话</div>
-                    <div class="list" id="chat-list"></div>
-                    <div class="row">
-                        <button id="new-chat" class="btn-primary small grow">新建会话</button>
-                        <button id="save-chat" class="btn-secondary small">保存</button>
-                    </div>
-                </div>
-                <div class="section">
-                    <div class="section-title">草稿</div>
-                    <div class="list" id="draft-list"></div>
-                    <div class="row">
-                        <button id="new-draft" class="btn-primary small grow">新建草稿</button>
-                        <button id="save-draft" class="btn-secondary small">保存</button>
-                    </div>
-                </div>
-            </aside>
 
             <main class="main">
                 <section class="chat">
@@ -65,9 +41,6 @@
                         <input type="url" id="topic-url" placeholder="话题链接（可选）" class="grow">
                         <button id="get-topic-info" class="btn-secondary small">获取信息</button>
                     </div>
-                    <div class="notice">
-                        <p>⚠️ 脉脉已取消web端发布功能，系统将使用移动端API发布内容</p>
-                    </div>
                     <textarea id="generated-content" rows="8" placeholder="生成的内容会显示在这里，可编辑后发布"></textarea>
                     <div class="row">
                         <button id="clear-btn" class="btn-secondary">清空内容</button>
@@ -77,23 +50,9 @@
 
             <aside class="rightbar">
                 <div class="section">
-                    <div class="section-title">模型设置</div>
-                    <label class="switch">
-                        <input type="checkbox" id="use-main-model" checked>
-                        <span class="slider"></span>
-                        <span>使用主模型 (Pro)</span>
-                    </label>
-                </div>
-                <div class="section">
-                    <div class="section-title">提示词模板</div>
-                    <div id="prompt-list" class="prompt-list"></div>
+                    <div class="section-title">提示词管理</div>
                     <div class="row">
-                        <button id="add-prompt" class="btn-secondary small">新增</button>
-                        <button id="save-prompts" class="btn-primary small">保存</button>
-                    </div>
-                    <div class="row">
-                        <select id="apply-prompt-select" class="grow"></select>
-                        <button id="apply-prompt" class="btn-secondary small">注入</button>
+                        <button id="manage-prompts" class="btn-primary grow">管理提示词</button>
                     </div>
                 </div>
                 <div class="section">
@@ -101,6 +60,44 @@
                     <div id="status-display" class="status-display"><p>等待操作...</p></div>
                 </div>
             </aside>
+        </div>
+    </div>
+
+    <!-- 提示词管理弹窗 -->
+    <div id="prompt-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>提示词管理</h3>
+                <button class="modal-close" id="close-prompt-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- 选择和应用区域 -->
+                <div class="prompt-selector-section">
+                    <h4>选择提示词</h4>
+                    <div class="row">
+                        <select id="prompt-select" class="grow">
+                            <option value="">选择提示词模板</option>
+                        </select>
+                        <button id="apply-prompt" class="btn-success small">应用</button>
+                    </div>
+                    <p class="current-prompt-info">当前使用: <span id="current-prompt-name">无</span></p>
+                </div>
+
+                <!-- 管理区域 -->
+                <div class="prompt-management-section">
+                    <h4>管理模板</h4>
+                    <div class="prompt-toolbar">
+                        <button id="add-prompt-item" class="btn-primary small">新增模板</button>
+                        <button id="save-all-prompts" class="btn-success small">保存全部</button>
+                    </div>
+                    <div id="prompt-list-container" class="prompt-list-container">
+                        <!-- 提示词列表动态生成 -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="close-prompt-modal-footer" class="btn-secondary">关闭</button>
+            </div>
         </div>
     </div>
 

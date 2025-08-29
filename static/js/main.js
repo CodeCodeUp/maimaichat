@@ -4,22 +4,19 @@ class MaimaiPublisher {
     constructor() {
         this.chatHistory = [];
         this.prompts = {};
-        this.currentChatId = null;
-        this.currentDraftId = null;
+        this.currentPrompt = '';
+        this.currentPromptKey = '';
         this.initializeElements();
         this.bindEvents();
         this.bootstrap();
     }
 
     initializeElements() {
-        // 左侧聊天和列表
+        // 主聊天区域
         this.chatBox = document.getElementById('chat-box');
         this.chatInput = document.getElementById('chat-input');
         this.sendMsgBtn = document.getElementById('send-msg');
         this.clearChatBtn = document.getElementById('clear-chat');
-        this.chatList = document.getElementById('chat-list');
-        this.newChatBtn = document.getElementById('new-chat');
-        this.saveChatBtn = document.getElementById('save-chat');
 
         // 发布区域
         this.titleInput = document.getElementById('title');
@@ -28,22 +25,20 @@ class MaimaiPublisher {
         this.publishBtn = document.getElementById('publish-btn');
         this.clearBtn = document.getElementById('clear-btn');
 
-        // 草稿列表
-        this.draftList = document.getElementById('draft-list');
-        this.newDraftBtn = document.getElementById('new-draft');
-        this.saveDraftBtn = document.getElementById('save-draft');
-
-        // 右侧配置
-        this.useMainModelCheckbox = document.getElementById('use-main-model');
-        this.promptList = document.getElementById('prompt-list');
-        this.savePromptsBtn = document.getElementById('save-prompts');
-        this.addPromptBtn = document.getElementById('add-prompt');
-        this.applyPromptSelect = document.getElementById('apply-prompt-select');
+        // 提示词管理
+        this.promptSelect = document.getElementById('prompt-select');
         this.applyPromptBtn = document.getElementById('apply-prompt');
+        this.managePromptsBtn = document.getElementById('manage-prompts');
+        this.promptModal = document.getElementById('prompt-modal');
+        this.closePromptModalBtn = document.getElementById('close-prompt-modal');
+        this.closePromptModalFooterBtn = document.getElementById('close-prompt-modal-footer');
+        this.addPromptItemBtn = document.getElementById('add-prompt-item');
+        this.saveAllPromptsBtn = document.getElementById('save-all-prompts');
+        this.promptListContainer = document.getElementById('prompt-list-container');
+        this.currentPromptName = document.getElementById('current-prompt-name');
 
         // 其他
         this.statusDisplay = document.getElementById('status-display');
-        this.testConnectionBtn = document.getElementById('test-connection');
         this.getTopicInfoBtn = document.getElementById('get-topic-info');
     }
 
@@ -61,14 +56,6 @@ class MaimaiPublisher {
             });
         }
 
-        // 会话管理
-        this.newChatBtn?.addEventListener('click', () => this.newChat());
-        this.saveChatBtn?.addEventListener('click', () => this.saveChat());
-
-        // 草稿管理
-        this.newDraftBtn?.addEventListener('click', () => this.newDraft());
-        this.saveDraftBtn?.addEventListener('click', () => this.saveDraft());
-
         // 发布相关
         this.publishBtn?.addEventListener('click', () => this.publishContent());
         this.clearBtn?.addEventListener('click', () => this.clearContent());
@@ -76,23 +63,28 @@ class MaimaiPublisher {
         this.generatedContentTextarea?.addEventListener('input', () => this.updatePublishButton());
 
         // 提示词管理
-        this.savePromptsBtn?.addEventListener('click', () => this.savePrompts());
-        this.addPromptBtn?.addEventListener('click', () => this.addPromptItem());
         this.applyPromptBtn?.addEventListener('click', () => this.applySelectedPrompt());
+        this.managePromptsBtn?.addEventListener('click', () => this.openPromptModal());
+        this.closePromptModalBtn?.addEventListener('click', () => this.closePromptModal());
+        this.closePromptModalFooterBtn?.addEventListener('click', () => this.closePromptModal());
+        this.addPromptItemBtn?.addEventListener('click', () => this.addPromptItem());
+        this.saveAllPromptsBtn?.addEventListener('click', () => this.saveAllPrompts());
+        
+        // 点击弹窗外部关闭
+        this.promptModal?.addEventListener('click', (e) => {
+            if (e.target === this.promptModal) {
+                this.closePromptModal();
+            }
+        });
 
         // 其他
-        this.testConnectionBtn?.addEventListener('click', () => this.testConnection());
+        this.getTopicInfoBtn?.addEventListener('click', () => this.getTopicInfo());
     }
 
     async bootstrap() {
-        // 初始化按钮状态
         this.initializeButtonStates();
-        
-        await this.loadConfig();
         await this.loadPrompts();
-        await this.refreshChatList();
-        await this.refreshDraftList();
-        this.addSystemMessage('你是一个资深新媒体编辑，擅长将话题梳理成适合脉脉的内容。');
+        this.addSystemMessage(this.currentPrompt || '你是一个资深新媒体编辑，擅长将话题梳理成适合脉脉的内容。');
         this.updatePublishButton();
         this.updateStatus('系统初始化完成，已配置移动端API发布模式', 'success');
     }
@@ -103,7 +95,6 @@ class MaimaiPublisher {
         const buttons = [
             this.sendMsgBtn,
             this.publishBtn,
-            this.testConnectionBtn,
             this.getTopicInfoBtn
         ];
         
@@ -114,124 +105,176 @@ class MaimaiPublisher {
         });
     }
 
-    // ===== 配置加载 =====
-    async loadConfig() {
-        try {
-            const response = await fetch('/api/config');
-            const result = await response.json();
-            if (result.success) {
-                this.config = result.data;
-                this.updateStatus('配置加载成功', 'success');
-            } else {
-                this.updateStatus(`配置加载失败: ${result.error}`, 'error');
-            }
-        } catch (error) {
-            this.updateStatus(`配置加载异常: ${error.message}`, 'error');
-        }
-    }
-
     // ===== 提示词管理 =====
     async loadPrompts() {
         try {
-            const response = await fetch('/api/prompts');
-            const result = await response.json();
-            if (result.success) {
-                this.prompts = result.data || {};
-                this.renderPromptList();
-                this.renderPromptSelect();
-                this.updateStatus('提示词加载成功', 'success');
+            const saved = localStorage.getItem('maimai_prompts');
+            if (saved) {
+                this.prompts = JSON.parse(saved);
             } else {
-                this.updateStatus(`提示词加载失败: ${result.error}`, 'error');
+                // 默认提示词
+                this.prompts = {
+                    '默认提示词': '你是一个资深新媒体编辑，擅长将话题梳理成适合脉脉的内容。',
+                    '脉脉创作者': '你是一名脉脉创作者，你在创作之前必须根据话题上网搜索实时最新的内容，避免制作内容过时。\\n创作的内容要符合脉脉的特点，不要有明显的ai生成痕迹，要符合正常创作者水平。\\n\\n这是脉脉的要求：\\n⚠目前参与活动的内容，需遵循以下内容规范（不符合要求的帖子不算入奖励）\\n①内容为经历内容时需要与话题的内容方向一致且为自身经历，分享他人故事之后不计入奖励\\n②内容为观点、知识、感受内容时，多个主贴需具有讨论方向的差异性，模板类内容不计入奖励\\n③帖子内容需非提问形式，且字数超过30字\\n④禁止AI编纂、抄袭搬运、水帖、个人人设冲突行为'
+                };
             }
+            
+            // 加载当前使用的提示词
+            const currentKey = localStorage.getItem('maimai_current_prompt_key');
+            if (currentKey && this.prompts[currentKey]) {
+                this.currentPrompt = this.prompts[currentKey];
+                this.currentPromptKey = currentKey;
+            } else {
+                const firstKey = Object.keys(this.prompts)[0];
+                this.currentPrompt = this.prompts[firstKey] || '';
+                this.currentPromptKey = firstKey || '';
+            }
+            
+            this.updatePromptSelect();
+            this.updateCurrentPromptDisplay();
+            this.updateStatus('提示词加载完成', 'success');
         } catch (error) {
             this.updateStatus(`提示词加载异常: ${error.message}`, 'error');
         }
     }
 
-    renderPromptList() {
-        if (!this.promptList) return;
-        this.promptList.innerHTML = '';
-        Object.entries(this.prompts).forEach(([key, value]) => {
-            this.promptList.appendChild(this.createPromptItem(key, value));
-        });
+    savePrompts() {
+        try {
+            localStorage.setItem('maimai_prompts', JSON.stringify(this.prompts));
+            this.updateStatus('提示词保存成功', 'success');
+        } catch (error) {
+            this.updateStatus(`提示词保存失败: ${error.message}`, 'error');
+        }
     }
 
-    renderPromptSelect() {
-        if (!this.applyPromptSelect) return;
-        this.applyPromptSelect.innerHTML = '<option value="">选择模板</option>';
+    updatePromptSelect() {
+        if (!this.promptSelect) return;
+        
+        this.promptSelect.innerHTML = '<option value="">选择提示词模板</option>';
         Object.keys(this.prompts).forEach(key => {
             const option = document.createElement('option');
             option.value = key;
             option.textContent = key;
-            this.applyPromptSelect.appendChild(option);
+            if (key === this.currentPromptKey) {
+                option.selected = true;
+            }
+            this.promptSelect.appendChild(option);
         });
     }
 
-    createPromptItem(key = '', value = '') {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'prompt-item';
-        wrapper.innerHTML = `
-            <input class="prompt-key" placeholder="模板名称" value="${this.escapeHtml(key)}">
-            <textarea class="prompt-value" rows="4" placeholder="请输入提示词模板">${this.escapeHtml(value)}</textarea>
-        `;
-        return wrapper;
-    }
-
-    addPromptItem() {
-        if (!this.promptList) return;
-        this.promptList.appendChild(this.createPromptItem());
-    }
-
-    async savePrompts() {
-        if (!this.promptList) return;
-        
-        const items = this.promptList.querySelectorAll('.prompt-item');
-        const updated = {};
-        
-        items.forEach(item => {
-            const key = item.querySelector('.prompt-key').value.trim();
-            const value = item.querySelector('.prompt-value').value.trim();
-            if (key) {
-                updated[key] = value;
-            }
-        });
-
-        try {
-            const response = await fetch('/api/prompts', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompts: updated })
-            });
-            const result = await response.json();
-            if (result.success) {
-                this.prompts = result.data;
-                this.renderPromptSelect();
-                this.updateStatus('提示词保存成功', 'success');
-            } else {
-                this.updateStatus(`提示词保存失败: ${result.error}`, 'error');
-            }
-        } catch (error) {
-            this.updateStatus(`提示词保存异常: ${error.message}`, 'error');
+    updateCurrentPromptDisplay() {
+        if (this.currentPromptName) {
+            this.currentPromptName.textContent = this.currentPromptKey || '无';
         }
     }
 
     applySelectedPrompt() {
-        if (!this.applyPromptSelect) return;
-        
-        const key = this.applyPromptSelect.value;
-        if (!key) {
+        const selectedKey = this.promptSelect?.value;
+        if (!selectedKey) {
             this.updateStatus('请选择一个提示词模板', 'error');
             return;
         }
         
-        const content = this.prompts[key] || '';
+        const content = this.prompts[selectedKey];
         if (!content) {
             this.updateStatus('所选模板为空', 'error');
             return;
         }
         
-        this.addSystemMessage(content);
-        this.updateStatus(`已将模板"${key}"注入到对话中`, 'success');
+        this.currentPrompt = content;
+        this.currentPromptKey = selectedKey;
+        localStorage.setItem('maimai_current_prompt_key', selectedKey);
+        this.updateCurrentPromptDisplay();
+        this.clearChat();
+        this.addSystemMessage(this.currentPrompt);
+        this.updateStatus(`已应用模板"${selectedKey}"`, 'success');
+    }
+
+    openPromptModal() {
+        if (!this.promptModal) return;
+        this.updatePromptSelect();
+        this.updateCurrentPromptDisplay();
+        this.renderPromptList();
+        this.promptModal.style.display = 'block';
+    }
+
+    closePromptModal() {
+        if (!this.promptModal) return;
+        this.promptModal.style.display = 'none';
+    }
+
+    renderPromptList() {
+        if (!this.promptListContainer) return;
+        
+        this.promptListContainer.innerHTML = '';
+        Object.entries(this.prompts).forEach(([key, value]) => {
+            this.promptListContainer.appendChild(this.createPromptItemCard(key, value));
+        });
+    }
+
+    createPromptItemCard(key = '', value = '') {
+        const card = document.createElement('div');
+        card.className = 'prompt-item-card';
+        
+        const keyId = 'prompt_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        
+        card.innerHTML = `
+            <div class="prompt-item-header">
+                <input type="text" class="prompt-key" value="${this.escapeHtml(key)}" placeholder="模板名称" data-key="${keyId}">
+                <div class="prompt-item-actions">
+                    <button class="btn-danger small delete-prompt" data-key="${keyId}">删除</button>
+                </div>
+            </div>
+            <textarea class="prompt-value" rows="6" placeholder="输入提示词内容..." data-key="${keyId}">${this.escapeHtml(value)}</textarea>
+        `;
+        
+        // 绑定删除事件
+        const deleteBtn = card.querySelector('.delete-prompt');
+        deleteBtn?.addEventListener('click', () => {
+            if (confirm('确定要删除这个提示词模板吗？')) {
+                card.remove();
+            }
+        });
+        
+        return card;
+    }
+
+    addPromptItem() {
+        if (!this.promptListContainer) return;
+        this.promptListContainer.appendChild(this.createPromptItemCard());
+    }
+
+    saveAllPrompts() {
+        if (!this.promptListContainer) return;
+        
+        const cards = this.promptListContainer.querySelectorAll('.prompt-item-card');
+        const newPrompts = {};
+        
+        cards.forEach(card => {
+            const keyInput = card.querySelector('.prompt-key');
+            const valueTextarea = card.querySelector('.prompt-value');
+            
+            if (keyInput && valueTextarea) {
+                const key = keyInput.value.trim();
+                const value = valueTextarea.value.trim();
+                
+                if (key) {
+                    newPrompts[key] = value;
+                }
+            }
+        });
+        
+        if (Object.keys(newPrompts).length === 0) {
+            this.updateStatus('至少需要一个有效的提示词模板', 'error');
+            return;
+        }
+        
+        this.prompts = newPrompts;
+        this.savePrompts();
+        this.updatePromptSelect();
+        this.updateCurrentPromptDisplay();
+        this.closePromptModal();
+        this.updateStatus('提示词模板保存成功', 'success');
     }
 
     // ===== 聊天功能 =====
@@ -296,7 +339,7 @@ class MaimaiPublisher {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     messages: this.chatHistory,
-                    use_main_model: this.useMainModelCheckbox?.checked || true
+                    use_main_model: true
                 }),
                 signal: AbortSignal.timeout(180000) // 3分钟超时
             });
@@ -326,254 +369,6 @@ class MaimaiPublisher {
             this.chatBox.innerHTML = '';
         }
         this.updateStatus('对话已清空', 'success');
-    }
-
-    // ===== 会话管理 =====
-    async refreshChatList() {
-        if (!this.chatList) return;
-        
-        try {
-            const response = await fetch('/api/chats');
-            const result = await response.json();
-            if (result.success) {
-                this.renderChatList(result.data);
-            } else {
-                this.updateStatus(`加载会话列表失败: ${result.error}`, 'error');
-            }
-        } catch (error) {
-            this.updateStatus(`加载会话列表异常: ${error.message}`, 'error');
-        }
-    }
-
-    renderChatList(chats) {
-        if (!this.chatList) return;
-        
-        this.chatList.innerHTML = '';
-        chats.forEach(chat => {
-            const item = document.createElement('div');
-            item.className = 'list-item';
-            if (chat.id === this.currentChatId) {
-                item.classList.add('active');
-            }
-            
-            item.innerHTML = `
-                <div class="title">${this.escapeHtml(chat.title || '未命名会话')}</div>
-                <div class="actions">
-                    <button onclick="app.loadChat('${chat.id}')" title="加载">📂</button>
-                    <button onclick="app.deleteChat('${chat.id}')" title="删除">🗑️</button>
-                </div>
-            `;
-            this.chatList.appendChild(item);
-        });
-    }
-
-    async loadChat(chatId) {
-        try {
-            const response = await fetch(`/api/chats/${chatId}`);
-            const result = await response.json();
-            if (result.success) {
-                this.currentChatId = chatId;
-                this.chatHistory = result.data.messages || [];
-                this.renderChatHistory();
-                this.refreshChatList();
-                this.updateStatus(`会话"${result.data.title || '未命名'}"已加载`, 'success');
-            } else {
-                this.updateStatus(`加载会话失败: ${result.error}`, 'error');
-            }
-        } catch (error) {
-            this.updateStatus(`加载会话异常: ${error.message}`, 'error');
-        }
-    }
-
-    renderChatHistory() {
-        if (!this.chatBox) return;
-        
-        this.chatBox.innerHTML = '';
-        this.chatHistory.forEach(message => {
-            this.appendChat(message);
-        });
-    }
-
-    newChat() {
-        this.currentChatId = null;
-        this.clearChat();
-        this.refreshChatList();
-        this.updateStatus('新建会话', 'success');
-    }
-
-    async saveChat() {
-        const title = prompt('请输入会话标题：', this.generateChatTitle());
-        if (!title) return;
-
-        try {
-            const response = await fetch('/api/chats', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id: this.currentChatId,
-                    title: title,
-                    messages: this.chatHistory,
-                    updated_at: Date.now()
-                })
-            });
-            const result = await response.json();
-            if (result.success) {
-                this.currentChatId = result.id;
-                this.refreshChatList();
-                this.updateStatus('会话保存成功', 'success');
-            } else {
-                this.updateStatus(`会话保存失败: ${result.error}`, 'error');
-            }
-        } catch (error) {
-            this.updateStatus(`会话保存异常: ${error.message}`, 'error');
-        }
-    }
-
-    async deleteChat(chatId) {
-        if (!confirm('确定要删除这个会话吗？')) return;
-
-        try {
-            const response = await fetch(`/api/chats/${chatId}`, { method: 'DELETE' });
-            const result = await response.json();
-            if (result.success) {
-                if (this.currentChatId === chatId) {
-                    this.newChat();
-                }
-                this.refreshChatList();
-                this.updateStatus('会话删除成功', 'success');
-            } else {
-                this.updateStatus(`会话删除失败: ${result.error}`, 'error');
-            }
-        } catch (error) {
-            this.updateStatus(`会话删除异常: ${error.message}`, 'error');
-        }
-    }
-
-    generateChatTitle() {
-        const userMessages = this.chatHistory.filter(m => m.role === 'user');
-        if (userMessages.length > 0) {
-            return userMessages[0].content.substring(0, 20) + '...';
-        }
-        return '新会话';
-    }
-
-    // ===== 草稿管理 =====
-    async refreshDraftList() {
-        if (!this.draftList) return;
-        
-        try {
-            const response = await fetch('/api/drafts');
-            const result = await response.json();
-            if (result.success) {
-                this.renderDraftList(result.data);
-            } else {
-                this.updateStatus(`加载草稿列表失败: ${result.error}`, 'error');
-            }
-        } catch (error) {
-            this.updateStatus(`加载草稿列表异常: ${error.message}`, 'error');
-        }
-    }
-
-    renderDraftList(drafts) {
-        if (!this.draftList) return;
-        
-        this.draftList.innerHTML = '';
-        drafts.forEach(draft => {
-            const item = document.createElement('div');
-            item.className = 'list-item';
-            if (draft.id === this.currentDraftId) {
-                item.classList.add('active');
-            }
-            
-            item.innerHTML = `
-                <div class="title">${this.escapeHtml(draft.title || '未命名草稿')}</div>
-                <div class="actions">
-                    <button onclick="app.loadDraft('${draft.id}')" title="加载">📂</button>
-                    <button onclick="app.deleteDraft('${draft.id}')" title="删除">🗑️</button>
-                </div>
-            `;
-            this.draftList.appendChild(item);
-        });
-    }
-
-    async loadDraft(draftId) {
-        try {
-            const response = await fetch(`/api/drafts/${draftId}`);
-            const result = await response.json();
-            if (result.success) {
-                this.currentDraftId = draftId;
-                if (this.titleInput) this.titleInput.value = result.data.title || '';
-                if (this.generatedContentTextarea) this.generatedContentTextarea.value = result.data.content || '';
-                if (this.topicUrlInput) this.topicUrlInput.value = result.data.topic_url || '';
-                this.updatePublishButton();
-                this.refreshDraftList();
-                this.updateStatus(`草稿"${result.data.title || '未命名'}"已加载`, 'success');
-            } else {
-                this.updateStatus(`加载草稿失败: ${result.error}`, 'error');
-            }
-        } catch (error) {
-            this.updateStatus(`加载草稿异常: ${error.message}`, 'error');
-        }
-    }
-
-    newDraft() {
-        this.currentDraftId = null;
-        if (this.titleInput) this.titleInput.value = '';
-        if (this.generatedContentTextarea) this.generatedContentTextarea.value = '';
-        if (this.topicUrlInput) this.topicUrlInput.value = '';
-        this.updatePublishButton();
-        this.refreshDraftList();
-        this.updateStatus('新建草稿', 'success');
-    }
-
-    async saveDraft() {
-        const title = this.titleInput?.value.trim() || '未命名草稿';
-        const content = this.generatedContentTextarea?.value.trim() || '';
-        const topicUrl = this.topicUrlInput?.value.trim() || '';
-
-        try {
-            const response = await fetch('/api/drafts', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id: this.currentDraftId,
-                    title: title,
-                    content: content,
-                    topic_url: topicUrl,
-                    updated_at: Date.now()
-                })
-            });
-            const result = await response.json();
-            if (result.success) {
-                this.currentDraftId = result.id;
-                this.refreshDraftList();
-                this.updateStatus('草稿保存成功', 'success');
-            } else {
-                this.updateStatus(`草稿保存失败: ${result.error}`, 'error');
-            }
-        } catch (error) {
-            this.updateStatus(`草稿保存异常: ${error.message}`, 'error');
-        }
-    }
-
-    async deleteDraft(draftId) {
-        if (!confirm('确定要删除这个草稿吗？')) return;
-
-        try {
-            const response = await fetch(`/api/drafts/${draftId}`, { method: 'DELETE' });
-            const result = await response.json();
-            if (result.success) {
-                if (this.currentDraftId === draftId) {
-                    this.newDraft();
-                }
-                this.refreshDraftList();
-                this.updateStatus('草稿删除成功', 'success');
-            } else {
-                this.updateStatus(`草稿删除失败: ${result.error}`, 'error');
-            }
-        } catch (error) {
-            this.updateStatus(`草稿删除异常: ${error.message}`, 'error');
-        }
     }
 
     // ===== 发布功能 =====
@@ -608,38 +403,6 @@ class MaimaiPublisher {
             this.updateStatus(`发布异常: ${error.message}`, 'error');
         } finally {
             this.setButtonLoading(this.publishBtn, false);
-        }
-    }
-
-    async testConnection() {
-        this.setButtonLoading(this.testConnectionBtn, true);
-        this.updateStatus('正在测试连接...', 'info');
-
-        try {
-            const response = await fetch('/api/test-connection', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type: 'all' }),
-                signal: AbortSignal.timeout(180000) // 3分钟超时
-            });
-            const result = await response.json();
-            
-            if (result.success) {
-                let statusText = '连接测试结果:\n';
-                if (result.results.ai) {
-                    statusText += `AI API: ${result.results.ai.success ? '✅ 正常' : '❌ ' + result.results.ai.error}\n`;
-                }
-                if (result.results.maimai) {
-                    statusText += `脉脉API: ${result.results.maimai.success ? '✅ 正常' : '❌ ' + result.results.maimai.error}`;
-                }
-                this.updateStatus(statusText, 'success');
-            } else {
-                this.updateStatus(`连接测试失败: ${result.error}`, 'error');
-            }
-        } catch (error) {
-            this.updateStatus(`连接测试异常: ${error.message}`, 'error');
-        } finally {
-            this.setButtonLoading(this.testConnectionBtn, false);
         }
     }
 

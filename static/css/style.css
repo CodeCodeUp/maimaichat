@@ -34,8 +34,8 @@
     --gray-800: #1f2937;
     --gray-900: #111827;
     
-    --bg-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    --bg-secondary: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --bg-primary: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    --bg-secondary: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
     --bg-surface: #ffffff;
     --bg-surface-secondary: #f8fafc;
     
@@ -113,7 +113,7 @@ body {
 /* --- 主布局 --- */
 .layout {
     display: grid;
-    grid-template-columns: 320px 1fr 320px;
+    grid-template-columns: 1fr 320px;
     flex: 1;
     min-height: 0;
     gap: 1px;
@@ -787,6 +787,188 @@ textarea {
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
+}
+
+/* --- 弹窗样式 --- */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(5px);
+    animation: fadeIn 0.3s ease;
+}
+
+.modal-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--bg-surface);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-xl);
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow: hidden;
+    animation: slideUp 0.3s ease;
+}
+
+.modal-header {
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg-surface-secondary);
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--gray-500);
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    line-height: 1;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-close:hover {
+    background: var(--gray-100);
+    color: var(--gray-700);
+}
+
+.modal-body {
+    padding: 2rem;
+    overflow-y: auto;
+    max-height: 60vh;
+}
+
+.modal-body textarea {
+    min-height: 300px;
+    font-family: 'SF Mono', Monaco, 'Inconsolata', 'Roboto Mono', monospace;
+    font-size: 0.875rem;
+    line-height: 1.6;
+}
+
+.prompt-toolbar {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.prompt-list-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.prompt-item-card {
+    background: var(--bg-surface-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    padding: 1rem;
+    transition: all 0.2s ease;
+}
+
+.prompt-item-card:hover {
+    box-shadow: var(--shadow-sm);
+    transform: translateY(-1px);
+}
+
+.prompt-item-header {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.prompt-item-header input {
+    flex: 1;
+    font-weight: 500;
+}
+
+.prompt-item-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.prompt-item-actions button {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    min-width: auto;
+}
+
+.prompt-item textarea {
+    min-height: 120px;
+    font-family: 'SF Mono', Monaco, 'Inconsolata', 'Roboto Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.5;
+}
+
+.prompt-selector-section {
+    background: var(--bg-surface-secondary);
+    border-radius: var(--border-radius-sm);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--border-color);
+}
+
+.prompt-management-section {
+    background: var(--bg-surface);
+    border-radius: var(--border-radius-sm);
+    padding: 1.5rem;
+    border: 1px solid var(--border-color);
+}
+
+.prompt-selector-section h4,
+.prompt-management-section h4 {
+    margin: 0 0 1rem 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.current-prompt-info {
+    margin: 0.75rem 0 0 0;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.current-prompt-info span {
+    font-weight: 500;
+    color: var(--primary-600);
+}
+
+.modal-footer {
+    padding: 1rem 2rem;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    background: var(--bg-surface-secondary);
 }
 
 /* --- 工具提示 --- */

@@ -29,62 +29,12 @@ logger = logging.getLogger(__name__)
 ai_generator = AIContentGenerator(Config.AI_CONFIG)
 maimai_api = MaimaiAPI(Config.MAIMAI_CONFIG)
 
-# 提示词存储
-from modules.prompt_store import PromptStore
-PROMPT_FILE = os.path.join('logs', 'prompts.json')
-prompt_store = PromptStore(PROMPT_FILE, Config.DEFAULT_PROMPTS)
-# 历史与草稿存储
-from modules.storage import ChatStore, DraftStore
-CHAT_FILE = os.path.join('data', 'chats.json')
-DRAFT_FILE = os.path.join('data', 'drafts.json')
-chat_store = ChatStore(CHAT_FILE)
-draft_store = DraftStore(DRAFT_FILE)
-
 
 @app.route('/')
 def index():
     """主页"""
     return send_from_directory('static', 'index.html')
 
-@app.route('/api/config', methods=['GET'])
-def get_config():
-    """获取配置信息"""
-    try:
-        return jsonify({
-            'success': True,
-            'data': {
-                'ai_models': {
-                    'main': Config.AI_CONFIG['main_model'],
-                    'assistant': Config.AI_CONFIG['assistant_model']
-                }
-            }
-        })
-    except Exception as e:
-        logger.error(f"获取配置失败：{str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/api/prompts', methods=['GET'])
-def get_prompts():
-    try:
-        return jsonify({'success': True, 'data': prompt_store.get_all()})
-    except Exception as e:
-        logger.error(f"获取提示词失败：{e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/api/prompts', methods=['POST'])
-def update_prompts():
-    try:
-        data = request.get_json()
-        if not data or 'prompts' not in data:
-            return jsonify({'success': False, 'error': '缺少prompts'}), 400
-        updated = prompt_store.update(data['prompts'])
-        return jsonify({'success': True, 'data': updated})
-    except Exception as e:
-        logger.error(f"更新提示词失败：{e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-    except Exception as e:
-        logger.error(f"获取配置失败：{str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/generate', methods=['POST'])
 def generate_content():
@@ -119,6 +69,7 @@ def generate_content():
         logger.error(f"生成内容异常：{str(e)}")
         return jsonify({'success': False, 'error': f'生成内容时发生错误：{str(e)}'}), 500
 
+
 @app.route('/api/publish', methods=['POST'])
 def publish_content():
     """发布内容到脉脉"""
@@ -145,144 +96,48 @@ def publish_content():
             topic_url=topic_url
         )
 
+        if result['success']:
+            logger.info(f"内容发布成功：{title}")
+        else:
+            logger.error(f"内容发布失败：{result.get('error', 'Unknown error')}")
+
         return jsonify(result)
 
     except Exception as e:
         logger.error(f"发布内容异常：{str(e)}")
-        return jsonify({
-            'success': False,
-            'error': f'发布内容时发生错误：{str(e)}'
-        }), 500
+        return jsonify({'success': False, 'error': f'发布内容时发生错误：{str(e)}'}), 500
 
-# ===== Chat Persistence APIs =====
-@app.route('/api/chats', methods=['GET'])
-def list_chats():
-    return jsonify({'success': True, 'data': chat_store.list()})
-
-@app.route('/api/chats/<chat_id>', methods=['GET'])
-def get_chat(chat_id):
-    data = chat_store.get(chat_id)
-    if not data:
-        return jsonify({'success': False, 'error': 'Chat not found'}), 404
-    return jsonify({'success': True, 'data': {'id': chat_id, **data}})
-
-@app.route('/api/chats', methods=['POST'])
-def save_chat():
-    payload = request.get_json() or {}
-    chat_id = payload.get('id')
-    if 'messages' not in payload:
-        return jsonify({'success': False, 'error': '缺少messages'}), 400
-    new_id_val = chat_store.save(chat_id, payload)
-    return jsonify({'success': True, 'id': new_id_val})
-
-@app.route('/api/chats/<chat_id>', methods=['DELETE'])
-def delete_chat(chat_id):
-    chat_store.delete(chat_id)
-    return jsonify({'success': True})
-
-# ===== Draft Persistence APIs =====
-@app.route('/api/drafts', methods=['GET'])
-def list_drafts():
-    return jsonify({'success': True, 'data': draft_store.list()})
-
-@app.route('/api/drafts/<draft_id>', methods=['GET'])
-def get_draft(draft_id):
-    data = draft_store.get(draft_id)
-    if not data:
-        return jsonify({'success': False, 'error': 'Draft not found'}), 404
-    return jsonify({'success': True, 'data': {'id': draft_id, **data}})
-
-@app.route('/api/drafts', methods=['POST'])
-def save_draft():
-    payload = request.get_json() or {}
-    draft_id = payload.get('id')
-    if 'title' not in payload and 'content' not in payload:
-        return jsonify({'success': False, 'error': '缺少草稿内容'}), 400
-    new_id_val = draft_store.save(draft_id, payload)
-    return jsonify({'success': True, 'id': new_id_val})
-
-@app.route('/api/drafts/<draft_id>', methods=['DELETE'])
-def delete_draft(draft_id):
-    draft_store.delete(draft_id)
-    return jsonify({'success': True})
-
-@app.route('/api/test-connection', methods=['POST'])
-def test_connections():
-    """测试API连接"""
-    try:
-        data = request.get_json()
-        test_type = data.get('type', 'all')  # 'ai', 'maimai', 'all'
-
-        results = {}
-
-        if test_type in ['ai', 'all']:
-            logger.info("测试AI API连接")
-            results['ai'] = ai_generator.test_connection()
-
-        if test_type in ['maimai', 'all']:
-            logger.info("测试脉脉API连接")
-            results['maimai'] = maimai_api.test_connection()
-
-        return jsonify({
-            'success': True,
-            'results': results
-        })
-
-    except Exception as e:
-        logger.error(f"测试连接异常：{str(e)}")
-        return jsonify({
-            'success': False,
-            'error': f'测试连接时发生错误：{str(e)}'
-        }), 500
 
 @app.route('/api/topic-info', methods=['POST'])
 def get_topic_info():
     """获取话题信息"""
     try:
         data = request.get_json()
-
         if not data or 'topic_url' not in data:
-            return jsonify({
-                'success': False,
-                'error': '缺少必需参数：topic_url'
-            }), 400
+            return jsonify({'success': False, 'error': '缺少话题链接'}), 400
 
         topic_url = data['topic_url']
-
         logger.info(f"获取话题信息：{topic_url}")
 
         result = maimai_api.get_topic_info(topic_url)
+
+        if result['success']:
+            logger.info(f"话题信息获取成功：{result.get('title', 'Unknown')}")
+        else:
+            logger.error(f"话题信息获取失败：{result.get('error', 'Unknown error')}")
 
         return jsonify(result)
 
     except Exception as e:
         logger.error(f"获取话题信息异常：{str(e)}")
-        return jsonify({
-            'success': False,
-            'error': f'获取话题信息时发生错误：{str(e)}'
-        }), 500
+        return jsonify({'success': False, 'error': f'获取话题信息时发生错误：{str(e)}'}), 500
 
-@app.errorhandler(404)
-def not_found(error):
-    """404错误处理"""
-    return jsonify({
-        'success': False,
-        'error': '页面未找到'
-    }), 404
-
-@app.errorhandler(500)
-def internal_error(error):
-    """500错误处理"""
-    logger.error(f"服务器内部错误：{str(error)}")
-    return jsonify({
-        'success': False,
-        'error': '服务器内部错误'
-    }), 500
 
 if __name__ == '__main__':
-    logger.info("启动脉脉自动发布系统")
+    logger.info("=== 脉脉自动发布系统启动 ===")
+    logger.info(f"服务地址：http://localhost:{Config.PORT}")
     app.run(
-        host='0.0.0.0',
-        port=5000,
+        host=Config.HOST,
+        port=Config.PORT,
         debug=Config.DEBUG
     )
