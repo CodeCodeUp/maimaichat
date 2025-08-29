@@ -14,9 +14,9 @@ class Config:
     
     # AI API配置
     AI_CONFIG = {
-        "api_key": "sk-slUU3FYBuF4l2miWBqFS6Of7IsnUJYEtMjohcFjYrzTxk67t",
-        "base_url": "https://veloera.wenwen12345.top/v1",
-        "main_model": "claude-sonnet-4-20250514",
+        "api_key": "sk-6vZIDOh3bs03jVZcv8PYMWnaSgzw8azvF0YynVJurreJThhs",
+        "base_url": "https://ai.lins.dev/v1",
+        "main_model": "gemini-2.5-pro-preview-06-05",
         "assistant_model": "gemini-2.5-flash-search"
     }
     
