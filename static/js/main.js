@@ -8,6 +8,8 @@ class MaimaiPublisher {
         this.currentPromptKey = '';
         this.topics = [];
         this.selectedTopicId = '';
+        this.jsonRetryCount = 0;
+        this.maxJsonRetry = 10;
         this.initializeElements();
         this.bindEvents();
         this.bootstrap();
@@ -373,10 +375,17 @@ class MaimaiPublisher {
         const text = this.chatInput?.value.trim();
         if (!text) return;
 
+        // 如果是新的用户输入（非重试），重置计数器
+        if (!this.isRetrying) {
+            this.jsonRetryCount = 0;
+        }
+
         this.addUserMessage(text);
         this.chatInput.value = '';
         this.setButtonLoading(this.sendMsgBtn, true);
-        this.updateStatus('正在生成回复...', 'info');
+        
+        const retryInfo = this.jsonRetryCount > 0 ? ` (重试 ${this.jsonRetryCount}/${this.maxJsonRetry})` : '';
+        this.updateStatus(`正在生成回复...${retryInfo}`, 'info');
 
         try {
             const response = await fetch('/api/generate', {
@@ -392,11 +401,8 @@ class MaimaiPublisher {
             
             if (result.success) {
                 this.addAssistantMessage(result.content);
-                // 将最新回复填入编辑区
-                if (this.generatedContentTextarea) {
-                    this.generatedContentTextarea.value = result.content;
-                    this.updatePublishButton();
-                }
+                // 尝试解析JSON格式并自动回填，如果失败可能触发重试
+                await this.processGeneratedContent(result.content);
                 this.updateStatus(`生成成功，使用模型: ${result.model_used || 'unknown'}`, 'success');
             } else {
                 this.updateStatus(`生成失败: ${result.error}`, 'error');
@@ -410,10 +416,137 @@ class MaimaiPublisher {
 
     clearChat() {
         this.chatHistory = [];
+        this.jsonRetryCount = 0;
+        this.isRetrying = false;
         if (this.chatBox) {
             this.chatBox.innerHTML = '';
         }
         this.updateStatus('对话已清空', 'success');
+    }
+
+    // 处理AI生成的内容，检测JSON格式并自动回填
+    async processGeneratedContent(content) {
+        // 先默认填入原始内容
+        if (this.generatedContentTextarea) {
+            this.generatedContentTextarea.value = content;
+            this.updatePublishButton();
+        }
+
+        // 尝试解析JSON格式
+        const jsonResult = this.extractJsonFromContent(content);
+        if (jsonResult) {
+            const { title, content: jsonContent } = jsonResult;
+            
+            // 自动填入标题和内容
+            if (title && this.titleInput) {
+                this.titleInput.value = title;
+            }
+            
+            if (jsonContent && this.generatedContentTextarea) {
+                this.generatedContentTextarea.value = jsonContent;
+                this.updatePublishButton();
+            }
+            
+            if (title || jsonContent) {
+                this.updateStatus('JSON格式检测成功，已自动回填', 'success');
+                this.jsonRetryCount = 0; // 重置重试计数器
+                this.isRetrying = false;
+            }
+        } else {
+            // JSON解析失败，检查是否需要重试
+            if (this.jsonRetryCount < this.maxJsonRetry) {
+                this.jsonRetryCount++;
+                this.isRetrying = true;
+                this.updateStatus(`JSON格式解析失败，正在重试 (${this.jsonRetryCount}/${this.maxJsonRetry})`, 'warning');
+                
+                // 添加重试提示消息
+                this.addUserMessage('请按照JSON格式回答，包含title和content字段：\n```json\n{\n  "title": "标题",\n  "content": "内容"\n}\n```');
+                
+                // 延迟1秒后自动重试
+                setTimeout(() => {
+                    this.autoRetryGeneration();
+                }, 1000);
+            } else {
+                // 达到最大重试次数，忽略错误继续原始流程
+                this.updateStatus(`JSON格式解析失败，已达到最大重试次数(${this.maxJsonRetry})，继续原始流程`, 'warning');
+                this.jsonRetryCount = 0;
+                this.isRetrying = false;
+            }
+        }
+    }
+
+    // 自动重试生成
+    async autoRetryGeneration() {
+        this.setButtonLoading(this.sendMsgBtn, true);
+        
+        const retryInfo = ` (重试 ${this.jsonRetryCount}/${this.maxJsonRetry})`;
+        this.updateStatus(`正在生成回复...${retryInfo}`, 'info');
+
+        try {
+            const response = await fetch('/api/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    messages: this.chatHistory,
+                    use_main_model: true
+                }),
+                signal: AbortSignal.timeout(180000) // 3分钟超时
+            });
+            const result = await response.json();
+            
+            if (result.success) {
+                this.addAssistantMessage(result.content);
+                // 递归调用处理生成内容
+                await this.processGeneratedContent(result.content);
+                this.updateStatus(`生成成功，使用模型: ${result.model_used || 'unknown'}`, 'success');
+            } else {
+                this.updateStatus(`生成失败: ${result.error}`, 'error');
+                this.isRetrying = false;
+            }
+        } catch (error) {
+            this.updateStatus(`生成异常: ${error.message}`, 'error');
+            this.isRetrying = false;
+        } finally {
+            this.setButtonLoading(this.sendMsgBtn, false);
+        }
+    }
+
+    // 从内容中提取JSON格式的title和content
+    extractJsonFromContent(content) {
+        try {
+            // 查找JSON代码块 (```json ... ```)
+            const jsonBlockMatch = content.match(/```json\s*\n?([\s\S]*?)\n?```/);
+            if (jsonBlockMatch) {
+                const jsonStr = jsonBlockMatch[1].trim();
+                const parsed = JSON.parse(jsonStr);
+                
+                if (parsed.title || parsed.content) {
+                    return {
+                        title: parsed.title || '',
+                        content: parsed.content || ''
+                    };
+                }
+            }
+            
+            // 查找花括号包围的JSON (寻找第一个完整的JSON对象)
+            const braceMatch = content.match(/\{[\s\S]*?\}/);
+            if (braceMatch) {
+                const jsonStr = braceMatch[0];
+                const parsed = JSON.parse(jsonStr);
+                
+                if (parsed.title || parsed.content) {
+                    return {
+                        title: parsed.title || '',
+                        content: parsed.content || ''
+                    };
+                }
+            }
+            
+            return null;
+        } catch (error) {
+            // JSON解析失败，忽略错误继续原始流程
+            return null;
+        }
     }
 
     // ===== 发布功能 =====
