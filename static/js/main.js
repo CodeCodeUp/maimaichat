@@ -7,6 +7,8 @@ class MaimaiPublisher {
         this.currentPrompt = '';
         this.currentPromptKey = '';
         this.topics = [];
+        this.groupedTopics = {}; // 新增：保存分组后的话题数据
+        this.groups = [];  // 新增: 分组列表
         this.selectedTopicId = '';
         this.jsonRetryCount = 0;
         this.maxJsonRetry = 10;
@@ -24,6 +26,7 @@ class MaimaiPublisher {
 
         // 发布区域
         this.titleInput = document.getElementById('title');
+        this.topicGroupFilter = document.getElementById('topic-group-filter');
         this.topicSelect = document.getElementById('topic-select');
         this.topicUrlInput = document.getElementById('topic-url');
         this.refreshTopicsBtn = document.getElementById('refresh-topics');
@@ -39,13 +42,19 @@ class MaimaiPublisher {
         this.newTopicIdInput = document.getElementById('new-topic-id');
         this.newTopicNameInput = document.getElementById('new-topic-name');
         this.newTopicCircleInput = document.getElementById('new-topic-circle');
+        this.newTopicGroupSelect = document.getElementById('new-topic-group-select');  // 新增
         this.addTopicBtn = document.getElementById('add-topic-btn');
         this.topicSearchInput = document.getElementById('topic-search');
         this.searchTopicsBtn = document.getElementById('search-topics-btn');
         this.topicListContainer = document.getElementById('topic-list-container');
         this.batchJsonInput = document.getElementById('batch-json-input');
+        this.batchImportGroupSelect = document.getElementById('batch-import-group-select');  // 新增
         this.batchImportBtn = document.getElementById('batch-import-btn');
         this.clearJsonBtn = document.getElementById('clear-json-btn');
+        
+        // 分组管理
+        this.newGroupNameInput = document.getElementById('new-group-name');
+        this.addGroupBtn = document.getElementById('add-group-btn');
 
         // 提示词管理
         this.promptSelect = document.getElementById('prompt-select');
@@ -84,6 +93,7 @@ class MaimaiPublisher {
         this.getTopicInfoBtn?.addEventListener('click', () => this.getTopicInfo());
         this.generatedContentTextarea?.addEventListener('input', () => this.updatePublishButton());
         this.refreshTopicsBtn?.addEventListener('click', () => this.loadTopics());
+        this.topicGroupFilter?.addEventListener('change', () => this.onTopicGroupFilterChange());
         this.topicSelect?.addEventListener('change', () => this.onTopicSelectChange());
         this.topicUrlInput?.addEventListener('input', () => this.onTopicUrlInput());
 
@@ -100,6 +110,9 @@ class MaimaiPublisher {
                 this.searchTopics();
             }
         });
+        
+        // 分组管理
+        this.addGroupBtn?.addEventListener('click', () => this.addGroup());
         
         // 点击话题弹窗外部关闭
         this.topicModal?.addEventListener('click', (e) => {
@@ -130,6 +143,7 @@ class MaimaiPublisher {
     async bootstrap() {
         this.initializeButtonStates();
         await this.loadPrompts();
+        await this.loadGroups();
         await this.loadTopics();
         this.addSystemMessage(this.currentPrompt || '你是一个资深新媒体编辑，擅长将话题梳理成适合脉脉的内容。');
         this.updatePublishButton();
@@ -662,7 +676,16 @@ class MaimaiPublisher {
             const response = await fetch('/api/topics');
             const result = await response.json();
             if (result.success) {
-                this.topics = result.data || [];
+                // 保存分组后的话题数据
+                this.groupedTopics = result.data || {};
+                
+                // 将分组格式转换为平铺格式用于下拉选择
+                this.topics = [];
+                for (const [groupName, topics] of Object.entries(this.groupedTopics)) {
+                    this.topics.push(...topics);
+                }
+                
+                this.updateTopicGroupFilter();
                 this.updateTopicSelect();
                 this.updateStatus('话题列表加载完成', 'success');
             } else {
@@ -673,16 +696,69 @@ class MaimaiPublisher {
         }
     }
 
+    updateTopicGroupFilter() {
+        if (!this.topicGroupFilter) return;
+        
+        this.topicGroupFilter.innerHTML = '<option value="">所有分组</option>';
+        Object.keys(this.groupedTopics).forEach(groupName => {
+            const option = document.createElement('option');
+            option.value = groupName;
+            option.textContent = groupName;
+            this.topicGroupFilter.appendChild(option);
+        });
+    }
+
     updateTopicSelect() {
         if (!this.topicSelect) return;
         
+        // 获取当前选择的分组
+        const selectedGroup = this.topicGroupFilter?.value || '';
+        
         this.topicSelect.innerHTML = '<option value="">选择话题（可选）</option>';
-        this.topics.forEach(topic => {
-            const option = document.createElement('option');
-            option.value = topic.id;
-            option.textContent = `${topic.name} (ID: ${topic.id}, ${topic.circle_type})`;
-            this.topicSelect.appendChild(option);
-        });
+        
+        if (selectedGroup) {
+            // 显示特定分组的话题
+            const groupTopics = this.groupedTopics[selectedGroup] || [];
+            groupTopics.forEach(topic => {
+                const option = document.createElement('option');
+                option.value = topic.id;
+                option.textContent = `${topic.name} (ID: ${topic.id}, ${topic.circle_type})`;
+                this.topicSelect.appendChild(option);
+            });
+        } else {
+            // 显示所有话题，按分组分类
+            Object.entries(this.groupedTopics).forEach(([groupName, topics]) => {
+                if (topics.length > 0) {
+                    // 添加分组标题
+                    const optgroup = document.createElement('optgroup');
+                    optgroup.label = groupName;
+                    
+                    topics.forEach(topic => {
+                        const option = document.createElement('option');
+                        option.value = topic.id;
+                        option.textContent = `${topic.name} (ID: ${topic.id}, ${topic.circle_type})`;
+                        optgroup.appendChild(option);
+                    });
+                    
+                    this.topicSelect.appendChild(optgroup);
+                }
+            });
+        }
+    }
+
+    onTopicGroupFilterChange() {
+        // 分组筛选改变时，清空话题选择并重新填充
+        this.selectedTopicId = '';
+        this.updateTopicSelect();
+        
+        // 重新启用话题URL输入
+        if (this.topicUrlInput) {
+            this.topicUrlInput.disabled = false;
+            this.topicUrlInput.placeholder = '或输入话题链接';
+        }
+        if (this.getTopicInfoBtn) {
+            this.getTopicInfoBtn.disabled = false;
+        }
     }
 
     onTopicUrlInput() {
@@ -735,6 +811,7 @@ class MaimaiPublisher {
 
     openTopicModal() {
         if (!this.topicModal) return;
+        this.updateGroupSelects();
         this.loadTopicsForModal();
         this.topicModal.style.display = 'block';
     }
@@ -745,14 +822,17 @@ class MaimaiPublisher {
         if (this.newTopicIdInput) this.newTopicIdInput.value = '';
         if (this.newTopicNameInput) this.newTopicNameInput.value = '';
         if (this.newTopicCircleInput) this.newTopicCircleInput.value = '';
+        if (this.newTopicGroupSelect) this.newTopicGroupSelect.value = '';
         if (this.topicSearchInput) this.topicSearchInput.value = '';
         if (this.batchJsonInput) this.batchJsonInput.value = '';
+        if (this.newGroupNameInput) this.newGroupNameInput.value = '';
     }
 
     async addTopic() {
         const topicId = this.newTopicIdInput?.value.trim();
         const name = this.newTopicNameInput?.value.trim();
         const circleType = this.newTopicCircleInput?.value.trim();
+        const group = this.newTopicGroupSelect?.value.trim() || null;
         
         if (!topicId || !name || !circleType) {
             this.updateStatus('请填写话题ID、名称和圈子类型', 'error');
@@ -760,10 +840,15 @@ class MaimaiPublisher {
         }
 
         try {
+            const requestData = { id: topicId, name, circle_type: circleType };
+            if (group) {
+                requestData.group = group;
+            }
+            
             const response = await fetch('/api/topics', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: topicId, name, circle_type: circleType })
+                body: JSON.stringify(requestData)
             });
             const result = await response.json();
             
@@ -771,6 +856,7 @@ class MaimaiPublisher {
                 this.newTopicIdInput.value = '';
                 this.newTopicNameInput.value = '';
                 this.newTopicCircleInput.value = '';
+                this.newTopicGroupSelect.value = '';
                 this.loadTopicsForModal();
                 this.loadTopics();
                 this.updateStatus('话题添加成功', 'success');
@@ -787,7 +873,7 @@ class MaimaiPublisher {
             const response = await fetch('/api/topics');
             const result = await response.json();
             if (result.success) {
-                this.renderTopicList(result.data || []);
+                this.renderTopicListByGroups(result.data || {});
             }
         } catch (error) {
             this.updateStatus(`加载话题失败: ${error.message}`, 'error');
@@ -805,7 +891,9 @@ class MaimaiPublisher {
             const response = await fetch(`/api/topics/search?q=${encodeURIComponent(keyword)}`);
             const result = await response.json();
             if (result.success) {
-                this.renderTopicList(result.data || []);
+                // 搜索结果转换为分组格式显示
+                const searchResults = { '搜索结果': result.data || [] };
+                this.renderTopicListByGroups(searchResults);
             } else {
                 this.updateStatus(`搜索话题失败: ${result.error}`, 'error');
             }
@@ -814,23 +902,62 @@ class MaimaiPublisher {
         }
     }
 
-    renderTopicList(topics) {
+    renderTopicListByGroups(groupedTopics) {
         if (!this.topicListContainer) return;
         
         this.topicListContainer.innerHTML = '';
-        topics.forEach(topic => {
-            this.topicListContainer.appendChild(this.createTopicItem(topic));
-        });
+        
+        for (const [groupName, topics] of Object.entries(groupedTopics)) {
+            if (topics.length === 0) continue;
+            
+            // 创建分组标题
+            const groupHeader = document.createElement('div');
+            groupHeader.className = 'topic-group-header';
+            groupHeader.innerHTML = `
+                <div class="group-title">
+                    <h5>${this.escapeHtml(groupName)} (${topics.length})</h5>
+                    <div class="group-actions">
+                        ${groupName !== '搜索结果' && groupName !== '未分组' ? `
+                            <button class="btn-secondary small edit-group" data-group="${this.escapeHtml(groupName)}">重命名</button>
+                            <button class="btn-danger small delete-group" data-group="${this.escapeHtml(groupName)}">删除分组</button>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+            
+            // 绑定分组操作事件
+            if (groupName !== '搜索结果' && groupName !== '未分组') {
+                const editBtn = groupHeader.querySelector('.edit-group');
+                const deleteBtn = groupHeader.querySelector('.delete-group');
+                
+                editBtn?.addEventListener('click', () => this.editGroup(groupName));
+                deleteBtn?.addEventListener('click', () => this.deleteGroup(groupName));
+            }
+            
+            this.topicListContainer.appendChild(groupHeader);
+            
+            // 添加该分组的话题
+            topics.forEach(topic => {
+                this.topicListContainer.appendChild(this.createTopicItem(topic));
+            });
+        }
     }
 
     createTopicItem(topic) {
         const item = document.createElement('div');
         item.className = 'topic-item';
+        
+        // 生成分组选择器选项
+        const groupOptions = this.groups.map(group => 
+            `<option value="${this.escapeHtml(group)}" ${topic.group === group ? 'selected' : ''}>${this.escapeHtml(group)}</option>`
+        ).join('');
+        
         item.innerHTML = `
             <div class="topic-item-header">
                 <div class="topic-item-info">
                     <div class="topic-item-name">${this.escapeHtml(topic.name)} <small>(ID: ${this.escapeHtml(topic.id)})</small></div>
                     <div class="topic-item-circle">${this.escapeHtml(topic.circle_type)}</div>
+                    <div class="topic-item-group">分组: ${this.escapeHtml(topic.group || '未分组')}</div>
                 </div>
                 <div class="topic-item-actions">
                     <button class="btn-secondary small edit-topic">编辑</button>
@@ -840,6 +967,10 @@ class MaimaiPublisher {
             <div class="topic-item-edit">
                 <input type="text" class="edit-name" value="${this.escapeHtml(topic.name)}" placeholder="话题名称">
                 <input type="text" class="edit-circle" value="${this.escapeHtml(topic.circle_type)}" placeholder="圈子类型" style="width: 150px;">
+                <select class="edit-group" style="width: 120px;">
+                    <option value="">无分组</option>
+                    ${groupOptions}
+                </select>
                 <button class="btn-success small save-topic">保存</button>
                 <button class="btn-secondary small cancel-edit">取消</button>
             </div>
@@ -875,9 +1006,11 @@ class MaimaiPublisher {
     async updateTopic(topicId, itemElement) {
         const nameInput = itemElement.querySelector('.edit-name');
         const circleInput = itemElement.querySelector('.edit-circle');
+        const groupSelect = itemElement.querySelector('.edit-group');
         
         const name = nameInput?.value.trim();
         const circleType = circleInput?.value.trim();
+        const group = groupSelect?.value.trim() || null;
         
         if (!name || !circleType) {
             this.updateStatus('请填写话题名称和圈子类型', 'error');
@@ -885,10 +1018,15 @@ class MaimaiPublisher {
         }
 
         try {
+            const requestData = { name, circle_type: circleType };
+            if (group !== null) {
+                requestData.group = group;
+            }
+            
             const response = await fetch(`/api/topics/${topicId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, circle_type: circleType })
+                body: JSON.stringify(requestData)
             });
             const result = await response.json();
             
@@ -949,6 +1087,17 @@ class MaimaiPublisher {
                 this.updateStatus('JSON数组不能为空', 'error');
                 return;
             }
+            
+            // 获取选择的默认分组
+            const defaultGroup = this.batchImportGroupSelect?.value.trim() || null;
+            if (defaultGroup) {
+                // 为没有指定分组的话题添加默认分组
+                topicsData.forEach(topic => {
+                    if (!topic.group) {
+                        topic.group = defaultGroup;
+                    }
+                });
+            }
 
             this.setButtonLoading(this.batchImportBtn, true);
             this.updateStatus(`正在批量导入 ${topicsData.length} 个话题...`, 'info');
@@ -983,6 +1132,7 @@ class MaimaiPublisher {
                 
                 // 清空输入框并刷新列表
                 this.batchJsonInput.value = '';
+                this.batchImportGroupSelect.value = '';
                 this.loadTopicsForModal();
                 this.loadTopics();
             } else {
@@ -996,6 +1146,123 @@ class MaimaiPublisher {
             }
         } finally {
             this.setButtonLoading(this.batchImportBtn, false);
+        }
+    }
+
+    // ===== 分组管理功能 =====
+    async loadGroups() {
+        try {
+            const response = await fetch('/api/topics/groups');
+            const result = await response.json();
+            if (result.success) {
+                this.groups = result.data || [];
+                this.updateStatus('分组列表加载完成', 'success');
+            } else {
+                this.updateStatus(`分组列表加载失败: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            this.updateStatus(`分组列表加载异常: ${error.message}`, 'error');
+        }
+    }
+
+    updateGroupSelects() {
+        // 更新新增话题的分组选择器
+        if (this.newTopicGroupSelect) {
+            this.newTopicGroupSelect.innerHTML = '<option value="">选择分组 (可选)</option>';
+            this.groups.forEach(group => {
+                const option = document.createElement('option');
+                option.value = group;
+                option.textContent = group;
+                this.newTopicGroupSelect.appendChild(option);
+            });
+        }
+
+        // 更新批量导入的分组选择器
+        if (this.batchImportGroupSelect) {
+            this.batchImportGroupSelect.innerHTML = '<option value="">导入到... (默认：未分组)</option>';
+            this.groups.forEach(group => {
+                const option = document.createElement('option');
+                option.value = group;
+                option.textContent = group;
+                this.batchImportGroupSelect.appendChild(option);
+            });
+        }
+    }
+
+    async addGroup() {
+        const groupName = this.newGroupNameInput?.value.trim();
+        if (!groupName) {
+            this.updateStatus('请输入分组名称', 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/topics/groups', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: groupName })
+            });
+            const result = await response.json();
+            
+            if (result.success) {
+                this.newGroupNameInput.value = '';
+                await this.loadGroups();
+                this.updateGroupSelects();
+                this.updateStatus('分组创建成功', 'success');
+            } else {
+                this.updateStatus(`分组创建失败: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            this.updateStatus(`分组创建异常: ${error.message}`, 'error');
+        }
+    }
+
+    async editGroup(oldName) {
+        const newName = prompt('请输入新的分组名称:', oldName);
+        if (!newName || newName === oldName) return;
+
+        try {
+            const response = await fetch(`/api/topics/groups/${encodeURIComponent(oldName)}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ new_name: newName })
+            });
+            const result = await response.json();
+            
+            if (result.success) {
+                await this.loadGroups();
+                this.updateGroupSelects();
+                this.loadTopicsForModal();
+                this.updateStatus(`分组 "${oldName}" 已重命名为 "${newName}"`, 'success');
+            } else {
+                this.updateStatus(`分组重命名失败: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            this.updateStatus(`分组重命名异常: ${error.message}`, 'error');
+        }
+    }
+
+    async deleteGroup(groupName) {
+        const deleteTopics = confirm(`确定要删除分组 "${groupName}" 吗？\n\n点击 "确定" 只删除分组（话题变为未分组）\n点击 "取消" 取消操作`);
+        if (!deleteTopics && !confirm('确定要删除分组及其包含的所有话题吗？')) return;
+
+        try {
+            const response = await fetch(`/api/topics/groups/${encodeURIComponent(groupName)}?delete_topics=${deleteTopics}`, {
+                method: 'DELETE'
+            });
+            const result = await response.json();
+            
+            if (result.success) {
+                await this.loadGroups();
+                this.updateGroupSelects();
+                this.loadTopicsForModal();
+                this.loadTopics();
+                this.updateStatus(`分组 "${groupName}" 删除成功`, 'success');
+            } else {
+                this.updateStatus(`分组删除失败: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            this.updateStatus(`分组删除异常: ${error.message}`, 'error');
         }
     }
 

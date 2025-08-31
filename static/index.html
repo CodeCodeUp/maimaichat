@@ -38,6 +38,9 @@
                         </button>
                     </div>
                     <div class="row">
+                        <select id="topic-group-filter" class="small" style="width: 150px;">
+                            <option value="">所有分组</option>
+                        </select>
                         <select id="topic-select" class="grow">
                             <option value="">选择话题（可选）</option>
                         </select>
@@ -83,36 +86,56 @@
                 <button class="modal-close" id="close-topic-modal">&times;</button>
             </div>
             <div class="modal-body">
-                <!-- 新增话题区域 -->
-                <div class="topic-add-section">
-                    <h4>新增话题</h4>
-                    <div class="row">
-                        <input type="text" id="new-topic-id" placeholder="话题ID" style="width: 120px;">
-                        <input type="text" id="new-topic-name" placeholder="话题名称" class="grow">
-                        <input type="text" id="new-topic-circle" placeholder="圈子类型" style="width: 150px;">
-                        <button id="add-topic-btn" class="btn-primary small">添加</button>
+                <div class="topic-left-panel">
+                    <!-- 分组管理区域 -->
+                    <div class="topic-group-section">
+                        <h4>分组管理</h4>
+                        <div class="row">
+                            <input type="text" id="new-group-name" placeholder="新分组名称" class="grow">
+                            <button id="add-group-btn" class="btn-primary small">添加分组</button>
+                        </div>
+                    </div>
+
+                    <!-- 新增话题区域 -->
+                    <div class="topic-add-section">
+                        <h4>新增话题</h4>
+                        <div class="row">
+                            <input type="text" id="new-topic-id" placeholder="话题ID" style="width: 120px;">
+                            <input type="text" id="new-topic-name" placeholder="话题名称" class="grow">
+                        </div>
+                        <div class="row">
+                            <input type="text" id="new-topic-circle" placeholder="圈子类型" class="grow">
+                            <select id="new-topic-group-select" class="grow">
+                                <option value="">选择分组 (可选)</option>
+                            </select>
+                            <button id="add-topic-btn" class="btn-primary small">添加话题</button>
+                        </div>
+                    </div>
+
+                    <!-- 批量导入区域 -->
+                    <div class="topic-batch-section">
+                        <h4>批量导入</h4>
+                        <textarea id="batch-json-input" rows="8" placeholder="粘贴JSON数据，格式：[{&quot;id&quot;: &quot;...&quot;, &quot;name&quot;: &quot;...&quot;, &quot;circle_type&quot;: &quot;...&quot;, &quot;group&quot;: &quot;分组名(可选)&quot;}, ...]"></textarea>
+                        <div class="row">
+                            <select id="batch-import-group-select" class="grow">
+                               <option value="">导入到... (默认：未分组)</option>
+                            </select>
+                            <button id="batch-import-btn" class="btn-success small">开始导入</button>
+                        </div>
                     </div>
                 </div>
 
-                <!-- 批量导入区域 -->
-                <div class="topic-batch-section">
-                    <h4>批量导入</h4>
-                    <textarea id="batch-json-input" rows="8" placeholder="粘贴JSON数据，格式：[{&quot;id&quot;: &quot;xxx&quot;, &quot;name&quot;: &quot;xxx&quot;, &quot;circle_type&quot;: 9}, ...]"></textarea>
-                    <div class="row">
-                        <button id="batch-import-btn" class="btn-success small">批量导入</button>
-                        <button id="clear-json-btn" class="btn-secondary small">清空</button>
-                    </div>
-                </div>
-
-                <!-- 话题列表区域 -->
-                <div class="topic-list-section">
-                    <h4>话题列表</h4>
-                    <div class="topic-search-bar">
-                        <input type="text" id="topic-search" placeholder="搜索话题..." class="grow">
-                        <button id="search-topics-btn" class="btn-secondary small">搜索</button>
-                    </div>
-                    <div id="topic-list-container" class="topic-list-container">
-                        <!-- 话题列表动态生成 -->
+                <div class="topic-right-panel">
+                    <!-- 话题列表区域 -->
+                    <div class="topic-list-section">
+                        <h4>话题列表</h4>
+                        <div class="topic-search-bar">
+                            <input type="text" id="topic-search" placeholder="搜索话题..." class="grow">
+                            <button id="search-topics-btn" class="btn-secondary small">搜索</button>
+                        </div>
+                        <div id="topic-list-container" class="topic-list-container">
+                            <!-- 分组和话题列表将动态生成在这里 -->
+                        </div>
                     </div>
                 </div>
             </div>

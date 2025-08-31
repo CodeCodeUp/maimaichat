@@ -177,7 +177,7 @@ def get_topics():
 
 @app.route('/api/topics', methods=['POST'])
 def create_topic():
-    """创建话题"""
+    """创建话题，支持指定分组"""
     try:
         data = request.get_json()
         if not data or 'name' not in data or 'circle_type' not in data or 'id' not in data:
@@ -186,11 +186,12 @@ def create_topic():
         topic_id = data['id'].strip()
         name = data['name'].strip()
         circle_type = data['circle_type'].strip()
+        group = data.get('group', '').strip() or None  # 新增: 获取分组
         
         if not topic_id or not name or not circle_type:
             return jsonify({'success': False, 'error': '话题ID、名称和圈子类型都不能为空'}), 400
         
-        new_id = topic_store.add_topic(name, circle_type, topic_id)
+        new_id = topic_store.add_topic(name, circle_type, topic_id, group=group)
         topic = topic_store.get_topic(new_id)
         
         return jsonify({'success': True, 'data': topic})
@@ -203,22 +204,30 @@ def create_topic():
 
 @app.route('/api/topics/<topic_id>', methods=['PUT'])
 def update_topic(topic_id):
-    """更新话题"""
+    """更新话题，支持修改分组"""
     try:
         data = request.get_json()
         if not data:
             return jsonify({'success': False, 'error': '缺少请求数据'}), 400
         
-        name = data.get('name', '').strip() if data.get('name') else None
-        circle_type = data.get('circle_type', '').strip() if data.get('circle_type') else None
+        name = data.get('name', '').strip() if data.get('name') is not None else None
+        circle_type = data.get('circle_type', '').strip() if data.get('circle_type') is not None else None
+        group = data.get('group', '').strip() if data.get('group') is not None else None # 可以传入""来取消分组
         
-        if name == '' or circle_type == '':
-            return jsonify({'success': False, 'error': '话题名称和圈子类型不能为空'}), 400
-        
-        success = topic_store.update_topic(topic_id, name, circle_type)
+        # 确保至少有一个字段被更新
+        if name is None and circle_type is None and group is None:
+            return jsonify({'success': False, 'error': '至少需要提供一个要更新的字段: name, circle_type, 或 group'}), 400
+
+        success = topic_store.update_topic(topic_id, name, circle_type, group)
         if not success:
-            return jsonify({'success': False, 'error': '话题不存在'}), 404
-        
+            # update_topic 返回 False 可能意味着话题不存在或没有任何内容被实际更新
+            # 为了更精确的反馈，可以检查话题是否存在
+            if not topic_store.get_topic(topic_id):
+                return jsonify({'success': False, 'error': '话题不存在'}), 404
+            else:
+                # 如果只是没有内容更新，可以视为成功，或者返回一个特定的消息
+                 return jsonify({'success': True, 'message': '没有检测到变更', 'data': topic_store.get_topic(topic_id)})
+
         topic = topic_store.get_topic(topic_id)
         return jsonify({'success': True, 'data': topic})
     except Exception as e:
@@ -292,6 +301,71 @@ def batch_import_topics():
     except Exception as e:
         logger.error(f"批量导入话题失败: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ===== 分组管理API =====
+
+@app.route('/api/topics/groups', methods=['GET'])
+def get_topic_groups():
+    """获取所有话题分组"""
+    try:
+        groups = topic_store.get_all_groups()
+        return jsonify({'success': True, 'data': groups})
+    except Exception as e:
+        logger.error(f"获取分组列表失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/topics/groups', methods=['POST'])
+def create_topic_group():
+    """创建新分组"""
+    try:
+        data = request.get_json()
+        if not data or 'name' not in data:
+            return jsonify({'success': False, 'error': '缺少参数: name'}), 400
+        
+        group_name = data['name'].strip()
+        topic_store.add_group(group_name)
+        return jsonify({'success': True, 'message': f"分组 '{group_name}' 创建成功"})
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except Exception as e:
+        logger.error(f"创建分组失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/topics/groups/<old_name>', methods=['PUT'])
+def rename_topic_group(old_name):
+    """重命名分组"""
+    try:
+        data = request.get_json()
+        if not data or 'new_name' not in data:
+            return jsonify({'success': False, 'error': '缺少参数: new_name'}), 400
+            
+        new_name = data['new_name'].strip()
+        if not topic_store.rename_group(old_name, new_name):
+            return jsonify({'success': False, 'error': f"分组 '{old_name}' 不存在"}), 404
+            
+        return jsonify({'success': True, 'message': f"分组 '{old_name}' 已重命名为 '{new_name}'"})
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except Exception as e:
+        logger.error(f"重命名分组失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/topics/groups/<name>', methods=['DELETE'])
+def delete_topic_group(name):
+    """删除分组"""
+    try:
+        # 可选参数，决定是否同时删除分组内的话题
+        delete_topics = request.args.get('delete_topics', 'false').lower() == 'true'
+        
+        if not topic_store.delete_group(name, delete_topics):
+            return jsonify({'success': False, 'error': f"分组 '{name}' 不存在"}), 404
+        
+        return jsonify({'success': True, 'message': f"分组 '{name}' 删除成功"})
+    except Exception as e:
+        logger.error(f"删除分组失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 
 if __name__ == '__main__':

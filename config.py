@@ -19,6 +19,12 @@ class Config:
         "main_model": "gemini-2.5-pro-preview-06-05",
         "assistant_model": "gemini-2.5-flash-search"
     }
+    # AI_CONFIG = {
+    #     "api_key": "sk-RhixfnCsWWIK8N8tqXmuCItASYMRQhLG4Z1ZIYMmDfhcAPKq",
+    #     "base_url": "https://tbai.xin/v1",
+    #     "main_model": "deepseek-v3",
+    #     "assistant_model": "gemini-2.5-flash-search"
+    # }
     
     # 脉脉API配置
     MAIMAI_CONFIG = {

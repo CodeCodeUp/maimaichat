@@ -811,11 +811,17 @@ textarea {
     background: var(--bg-surface);
     border-radius: var(--border-radius);
     box-shadow: var(--shadow-xl);
-    width: 90%;
-    max-width: 600px;
-    max-height: 80vh;
+    width: 95%;
+    max-width: 1200px;
+    max-height: 90vh;
     overflow: hidden;
     animation: slideUp 0.3s ease;
+}
+
+/* 话题管理弹窗特殊样式 */
+#topic-modal .modal-content {
+    max-width: 1400px;
+    width: 98%;
 }
 
 .modal-header {
@@ -859,7 +865,28 @@ textarea {
 .modal-body {
     padding: 2rem;
     overflow-y: auto;
-    max-height: 60vh;
+    max-height: 70vh;
+}
+
+/* 话题管理弹窗内容布局 */
+#topic-modal .modal-body {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 2rem;
+    padding: 1.5rem 2rem;
+    max-height: 75vh;
+}
+
+.topic-left-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.topic-right-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
 }
 
 .modal-body textarea {
@@ -962,6 +989,75 @@ textarea {
     color: var(--primary-600);
 }
 
+/* --- 话题分组样式 --- */
+.topic-group-section {
+    background: var(--success-50);
+    border-radius: var(--border-radius-sm);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--success-100);
+}
+
+.topic-group-section h4 {
+    margin: 0 0 1rem 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.topic-group-header {
+    background: var(--bg-surface-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    padding: 1rem;
+    margin: 1rem 0 0.5rem 0;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.topic-group-header .group-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.topic-group-header h5 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.topic-group-header h5::before {
+    content: '📁';
+    font-size: 1.2rem;
+}
+
+.group-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.group-actions button {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    min-width: auto;
+}
+
+.topic-item-group {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    background: var(--gray-100);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    display: inline-block;
+    margin-top: 0.25rem;
+}
+
 /* --- 话题管理样式 --- */
 .topic-add-section {
     background: var(--bg-surface-secondary);
@@ -1012,8 +1108,12 @@ textarea {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
-    max-height: 300px;
+    max-height: 500px;
     overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    padding: 1rem;
+    background: var(--bg-surface-secondary);
 }
 
 .topic-item {
@@ -1093,6 +1193,51 @@ textarea {
     justify-content: flex-end;
     gap: 1rem;
     background: var(--bg-surface-secondary);
+}
+
+/* --- 分组筛选样式 --- */
+#topic-group-filter {
+    background: var(--bg-surface);
+    border: 2px solid var(--primary-200);
+    color: var(--primary-700);
+    font-weight: 500;
+    border-radius: var(--border-radius-sm);
+}
+
+#topic-group-filter:focus {
+    border-color: var(--primary-500);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+/* optgroup 样式 */
+#topic-select optgroup {
+    background: var(--bg-surface-secondary);
+    font-weight: 600;
+    color: var(--primary-700);
+    font-style: normal;
+    padding: 0.5rem;
+}
+
+#topic-select option {
+    padding: 0.5rem;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    #topic-modal .modal-body {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto;
+    }
+    
+    .topic-left-panel {
+        order: 1;
+    }
+    
+    .topic-right-panel {
+        order: 2;
+    }
 }
 
 /* --- 工具提示 --- */
