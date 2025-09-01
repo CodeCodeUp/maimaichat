@@ -36,6 +36,10 @@
                             <span class="btn-text">发布</span>
                             <span class="loading">发布中...</span>
                         </button>
+                        <button id="schedule-publish-btn" class="btn-warning" disabled>
+                            <span class="btn-text">定时发布</span>
+                            <span class="loading">添加中...</span>
+                        </button>
                     </div>
                     <div class="row">
                         <select id="topic-group-filter" class="small" style="width: 150px;">
@@ -68,6 +72,15 @@
                     <div class="section-title">话题管理</div>
                     <div class="row">
                         <button id="manage-topics" class="btn-secondary grow">管理话题</button>
+                    </div>
+                </div>
+                <div class="section">
+                    <div class="section-title">
+                        定时发布
+                        <span id="pending-count" class="pending-count">0</span>
+                    </div>
+                    <div class="row">
+                        <button id="manage-scheduled" class="btn-warning grow">管理定时发布</button>
                     </div>
                 </div>
                 <div class="section">
@@ -141,6 +154,28 @@
             </div>
             <div class="modal-footer">
                 <button id="close-topic-modal-footer" class="btn-secondary">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 定时发布管理弹窗 -->
+    <div id="scheduled-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>定时发布管理</h3>
+                <button class="modal-close" id="close-scheduled-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="scheduled-stats">
+                    <p>当前待发布任务：<span id="scheduled-pending-count">0</span> 个</p>
+                </div>
+                <div id="scheduled-list-container" class="scheduled-list-container">
+                    <!-- 定时发布任务列表将动态生成在这里 -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="refresh-scheduled" class="btn-primary">刷新列表</button>
+                <button id="close-scheduled-modal-footer" class="btn-secondary">关闭</button>
             </div>
         </div>
     </div>

@@ -34,6 +34,15 @@ from modules.topic_store import TopicStore
 TOPIC_FILE = os.path.join('data', 'topics.json')
 topic_store = TopicStore(TOPIC_FILE)
 
+# 初始化定时发布存储
+from modules.scheduled_posts import ScheduledPostsStore
+SCHEDULED_POSTS_FILE = os.path.join('data', 'scheduled_posts.json')
+scheduled_posts_store = ScheduledPostsStore(SCHEDULED_POSTS_FILE)
+
+# 初始化定时发布处理器
+from modules.scheduler import ScheduledPublisher
+scheduled_publisher = ScheduledPublisher(scheduled_posts_store, maimai_api)
+
 
 @app.route('/')
 def index():
@@ -364,15 +373,164 @@ def delete_topic_group(name):
         return jsonify({'success': True, 'message': f"分组 '{name}' 删除成功"})
     except Exception as e:
         logger.error(f"删除分组失败: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
 
+# ===== 定时发布API =====
+
+@app.route('/api/scheduled-publish', methods=['POST'])
+def schedule_publish():
+    """添加定时发布任务"""
+    try:
+        data = request.get_json()
+        
+        # 验证必需参数
+        if not data or 'title' not in data or 'content' not in data:
+            return jsonify({
+                'success': False,
+                'error': '缺少必需参数：title 或 content'
+            }), 400
+
+        title = data['title']
+        content = data['content']
+        topic_url = data.get('topic_url', '')
+        topic_id = data.get('topic_id', '')
+        circle_type = data.get('circle_type', '')
+
+        logger.info(f"添加定时发布任务：{title}")
+
+        # 确定话题信息，完全复制正常发布的逻辑
+        topic_name = None
+        if topic_id and circle_type:
+            # 使用选择的话题ID和圈子类型，从话题存储中获取名称
+            logger.info(f"使用选择的话题：ID={topic_id}, circle_type={circle_type}")
+            topic_data = topic_store.get_topic(topic_id)
+            topic_name = topic_data.get('name') if topic_data else None
+        elif topic_url:
+            # 使用话题链接提取
+            logger.info(f"使用话题链接：{topic_url}")
+        else:
+            logger.info("无话题定时发布")
+
+        # 添加到定时发布队列，保存完整的话题信息
+        post_id = scheduled_posts_store.add_post(
+            title=title,
+            content=content,
+            topic_url=topic_url,
+            topic_id=topic_id,
+            circle_type=circle_type,
+            topic_name=topic_name  # 新增：保存话题名称
+        )
+
+        # 获取任务信息以返回预计发布时间
+        post_info = scheduled_posts_store.get_post(post_id)
+        scheduled_time = post_info['scheduled_at'] if post_info else None
+
+        return jsonify({
+            'success': True,
+            'message': '已添加到定时发布队列',
+            'post_id': post_id,
+            'scheduled_at': scheduled_time,
+            'pending_count': scheduled_posts_store.get_pending_count()
+        })
+
+    except Exception as e:
+        logger.error(f"添加定时发布任务异常：{str(e)}")
+        return jsonify({'success': False, 'error': f'添加定时发布任务时发生错误：{str(e)}'}), 500
+
+
+@app.route('/api/scheduled-posts', methods=['GET'])
+def get_scheduled_posts():
+    """获取所有定时发布任务"""
+    try:
+        posts = scheduled_posts_store.get_all_posts()
+        return jsonify({
+            'success': True,
+            'data': posts,
+            'pending_count': scheduled_posts_store.get_pending_count()
+        })
+    except Exception as e:
+        logger.error(f"获取定时发布任务异常：{str(e)}")
+        return jsonify({'success': False, 'error': f'获取定时发布任务时发生错误：{str(e)}'}), 500
+
+
+@app.route('/api/scheduled-posts/<post_id>', methods=['DELETE'])
+def delete_scheduled_post(post_id):
+    """删除定时发布任务"""
+    try:
+        success = scheduled_posts_store.delete_post(post_id)
+        if not success:
+            return jsonify({'success': False, 'error': '任务不存在'}), 404
+        
+        return jsonify({
+            'success': True,
+            'message': '任务删除成功',
+            'pending_count': scheduled_posts_store.get_pending_count()
+        })
+    except Exception as e:
+        logger.error(f"删除定时发布任务异常：{str(e)}")
+        return jsonify({'success': False, 'error': f'删除定时发布任务时发生错误：{str(e)}'}), 500
+
+
+@app.route('/api/scheduled-posts/<post_id>', methods=['PUT'])
+def update_scheduled_post(post_id):
+    """更新定时发布任务"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': '缺少请求数据'}), 400
+        
+        title = data.get('title')
+        content = data.get('content')
+        
+        success = scheduled_posts_store.update_post(post_id, title, content)
+        if not success:
+            return jsonify({'success': False, 'error': '任务不存在或未发生更新'}), 404
+        
+        return jsonify({'success': True, 'message': '任务更新成功'})
+    except Exception as e:
+        logger.error(f"更新定时发布任务异常：{str(e)}")
+        return jsonify({'success': False, 'error': f'更新定时发布任务时发生错误：{str(e)}'}), 500
+
+
+@app.route('/api/scheduled-posts/<post_id>/reschedule', methods=['POST'])
+def reschedule_post(post_id):
+    """重新安排发布时间"""
+    try:
+        data = request.get_json() or {}
+        delay_minutes = data.get('delay_minutes')
+        
+        success = scheduled_posts_store.reschedule_post(post_id, delay_minutes)
+        if not success:
+            return jsonify({'success': False, 'error': '任务不存在'}), 404
+        
+        # 获取更新后的任务信息
+        post_info = scheduled_posts_store.get_post(post_id)
+        scheduled_time = post_info['scheduled_at'] if post_info else None
+        
+        return jsonify({
+            'success': True,
+            'message': '发布时间已重新安排',
+            'scheduled_at': scheduled_time
+        })
+    except Exception as e:
+        logger.error(f"重新安排发布时间异常：{str(e)}")
+        return jsonify({'success': False, 'error': f'重新安排发布时间时发生错误：{str(e)}'}), 500
 
 
 if __name__ == '__main__':
     logger.info("=== 脉脉自动发布系统启动 ===")
     logger.info(f"服务地址：http://localhost:{Config.PORT}")
-    app.run(
-        host=Config.HOST,
-        port=Config.PORT,
-        debug=Config.DEBUG
-    )
+    
+    # 启动定时发布处理器
+    scheduled_publisher.start()
+    logger.info("定时发布后台任务已启动")
+    
+    try:
+        app.run(
+            host=Config.HOST,
+            port=Config.PORT,
+            debug=Config.DEBUG
+        )
+    finally:
+        # 程序退出时停止定时任务处理器
+        scheduled_publisher.stop()
+        logger.info("定时发布后台任务已停止")

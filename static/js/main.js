@@ -32,6 +32,7 @@ class MaimaiPublisher {
         this.refreshTopicsBtn = document.getElementById('refresh-topics');
         this.generatedContentTextarea = document.getElementById('generated-content');
         this.publishBtn = document.getElementById('publish-btn');
+        this.schedulePublishBtn = document.getElementById('schedule-publish-btn');
         this.clearBtn = document.getElementById('clear-btn');
 
         // 话题管理
@@ -55,6 +56,16 @@ class MaimaiPublisher {
         // 分组管理
         this.newGroupNameInput = document.getElementById('new-group-name');
         this.addGroupBtn = document.getElementById('add-group-btn');
+
+        // 定时发布管理
+        this.manageScheduledBtn = document.getElementById('manage-scheduled');
+        this.scheduledModal = document.getElementById('scheduled-modal');
+        this.closeScheduledModalBtn = document.getElementById('close-scheduled-modal');
+        this.closeScheduledModalFooterBtn = document.getElementById('close-scheduled-modal-footer');
+        this.refreshScheduledBtn = document.getElementById('refresh-scheduled');
+        this.scheduledListContainer = document.getElementById('scheduled-list-container');
+        this.scheduledPendingCount = document.getElementById('scheduled-pending-count');
+        this.pendingCount = document.getElementById('pending-count');
 
         // 提示词管理
         this.promptSelect = document.getElementById('prompt-select');
@@ -89,6 +100,7 @@ class MaimaiPublisher {
 
         // 发布相关
         this.publishBtn?.addEventListener('click', () => this.publishContent());
+        this.schedulePublishBtn?.addEventListener('click', () => this.schedulePublish());
         this.clearBtn?.addEventListener('click', () => this.clearContent());
         this.getTopicInfoBtn?.addEventListener('click', () => this.getTopicInfo());
         this.generatedContentTextarea?.addEventListener('input', () => this.updatePublishButton());
@@ -113,6 +125,19 @@ class MaimaiPublisher {
         
         // 分组管理
         this.addGroupBtn?.addEventListener('click', () => this.addGroup());
+        
+        // 定时发布管理
+        this.manageScheduledBtn?.addEventListener('click', () => this.openScheduledModal());
+        this.closeScheduledModalBtn?.addEventListener('click', () => this.closeScheduledModal());
+        this.closeScheduledModalFooterBtn?.addEventListener('click', () => this.closeScheduledModal());
+        this.refreshScheduledBtn?.addEventListener('click', () => this.loadScheduledPosts());
+        
+        // 点击定时发布弹窗外部关闭
+        this.scheduledModal?.addEventListener('click', (e) => {
+            if (e.target === this.scheduledModal) {
+                this.closeScheduledModal();
+            }
+        });
         
         // 点击话题弹窗外部关闭
         this.topicModal?.addEventListener('click', (e) => {
@@ -145,6 +170,7 @@ class MaimaiPublisher {
         await this.loadPrompts();
         await this.loadGroups();
         await this.loadTopics();
+        await this.loadScheduledPostsCount();
         this.addSystemMessage(this.currentPrompt || '你是一个资深新媒体编辑，擅长将话题梳理成适合脉脉的内容。');
         this.updatePublishButton();
         this.updateStatus('系统初始化完成，已配置移动端API发布模式', 'success');
@@ -156,6 +182,7 @@ class MaimaiPublisher {
         const buttons = [
             this.sendMsgBtn,
             this.publishBtn,
+            this.schedulePublishBtn,
             this.getTopicInfoBtn
         ];
         
@@ -1266,12 +1293,191 @@ class MaimaiPublisher {
         }
     }
 
+    // ===== 定时发布管理 =====
+    async schedulePublish() {
+        const title = this.titleInput?.value.trim();
+        const content = this.generatedContentTextarea?.value.trim();
+        const topicUrl = this.topicUrlInput?.value.trim();
+        const selectedTopicId = this.selectedTopicId;
+
+        if (!title || !content) {
+            this.updateStatus('请确保标题和内容都已填写', 'error');
+            return;
+        }
+
+        this.setButtonLoading(this.schedulePublishBtn, true);
+        this.updateStatus('正在添加到定时发布队列...', 'info');
+
+        try {
+            let publishData = { title, content };
+            
+            if (selectedTopicId) {
+                const selectedTopic = this.topics.find(t => t.id === selectedTopicId);
+                if (selectedTopic) {
+                    publishData.topic_id = selectedTopic.id;
+                    publishData.circle_type = selectedTopic.circle_type;
+                }
+            } else if (topicUrl) {
+                publishData.topic_url = topicUrl;
+            }
+
+            const response = await fetch('/api/scheduled-publish', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(publishData),
+                signal: AbortSignal.timeout(180000)
+            });
+            const result = await response.json();
+            
+            if (result.success) {
+                const scheduledTime = new Date(result.scheduled_at).toLocaleString();
+                this.updateStatus(`定时发布添加成功！预计发布时间: ${scheduledTime}`, 'success');
+                this.updatePendingCount(result.pending_count);
+                
+                this.clearContent();
+                if (this.titleInput) this.titleInput.value = '';
+            } else {
+                this.updateStatus(`定时发布添加失败: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            this.updateStatus(`定时发布添加异常: ${error.message}`, 'error');
+        } finally {
+            this.setButtonLoading(this.schedulePublishBtn, false);
+        }
+    }
+
+    async loadScheduledPostsCount() {
+        try {
+            const response = await fetch('/api/scheduled-posts');
+            const result = await response.json();
+            if (result.success) {
+                this.updatePendingCount(result.pending_count);
+            }
+        } catch (error) {
+            // 静默失败
+        }
+    }
+
+    async loadScheduledPosts() {
+        try {
+            const response = await fetch('/api/scheduled-posts');
+            const result = await response.json();
+            if (result.success) {
+                this.renderScheduledPosts(result.data);
+                this.updatePendingCount(result.pending_count);
+                if (this.scheduledPendingCount) {
+                    this.scheduledPendingCount.textContent = result.pending_count;
+                }
+            }
+        } catch (error) {
+            this.updateStatus(`定时发布列表加载异常: ${error.message}`, 'error');
+        }
+    }
+
+    renderScheduledPosts(posts) {
+        if (!this.scheduledListContainer) return;
+        
+        this.scheduledListContainer.innerHTML = '';
+        
+        if (posts.length === 0) {
+            this.scheduledListContainer.innerHTML = '<p class="no-posts">暂无定时发布任务</p>';
+            return;
+        }
+        
+        posts.forEach(post => {
+            this.scheduledListContainer.appendChild(this.createScheduledPostItem(post));
+        });
+    }
+
+    createScheduledPostItem(post) {
+        const item = document.createElement('div');
+        item.className = `scheduled-post-item ${post.status}`;
+        
+        const scheduledTime = new Date(post.scheduled_at).toLocaleString();
+        
+        let statusText = post.status === 'pending' ? '等待发布' : '发布失败';
+        
+        // 话题信息显示
+        let topicInfo = '';
+        if (post.topic_name && post.topic_id) {
+            topicInfo = `<div class="topic-info">话题: ${this.escapeHtml(post.topic_name)} (ID: ${this.escapeHtml(post.topic_id)})</div>`;
+        } else if (post.topic_url) {
+            topicInfo = `<div class="topic-info">话题链接: ${this.escapeHtml(post.topic_url)}</div>`;
+        }
+        
+        item.innerHTML = `
+            <div class="post-header">
+                <div class="post-title">${this.escapeHtml(post.title)}</div>
+                <div class="post-status">${statusText}</div>
+            </div>
+            ${topicInfo}
+            <div class="post-content">${this.escapeHtml(post.content.substring(0, 100))}...</div>
+            <div class="post-meta">
+                <small>预计发布: ${scheduledTime}</small>
+                <div class="post-actions">
+                    <button class="btn-danger small delete-scheduled-post" data-id="${post.id}">删除</button>
+                </div>
+            </div>
+        `;
+
+        const deleteBtn = item.querySelector('.delete-scheduled-post');
+        deleteBtn?.addEventListener('click', () => {
+            if (confirm('确定要删除这个定时发布任务吗？')) {
+                this.deleteScheduledPost(post.id);
+            }
+        });
+
+        return item;
+    }
+
+    async deleteScheduledPost(postId) {
+        try {
+            const response = await fetch(`/api/scheduled-posts/${postId}`, {
+                method: 'DELETE'
+            });
+            const result = await response.json();
+            
+            if (result.success) {
+                this.loadScheduledPosts();
+                this.updatePendingCount(result.pending_count);
+                this.updateStatus('定时发布任务删除成功', 'success');
+            } else {
+                this.updateStatus(`删除失败: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            this.updateStatus(`删除异常: ${error.message}`, 'error');
+        }
+    }
+
+    openScheduledModal() {
+        if (!this.scheduledModal) return;
+        this.loadScheduledPosts();
+        this.scheduledModal.style.display = 'block';
+    }
+
+    closeScheduledModal() {
+        if (!this.scheduledModal) return;
+        this.scheduledModal.style.display = 'none';
+    }
+
+    updatePendingCount(count) {
+        if (this.pendingCount) {
+            this.pendingCount.textContent = count;
+            this.pendingCount.style.display = count > 0 ? 'inline' : 'none';
+        }
+    }
+
     // ===== 工具方法 =====
     updatePublishButton() {
         if (!this.publishBtn || !this.generatedContentTextarea) return;
         
         const hasContent = this.generatedContentTextarea.value.trim().length > 0;
         this.publishBtn.disabled = !hasContent;
+        
+        // 同时更新定时发布按钮
+        if (this.schedulePublishBtn) {
+            this.schedulePublishBtn.disabled = !hasContent;
+        }
     }
 
     setButtonLoading(button, loading) {

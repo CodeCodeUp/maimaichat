@@ -22,14 +22,14 @@ class Config:
     # AI_CONFIG = {
     #     "api_key": "sk-RhixfnCsWWIK8N8tqXmuCItASYMRQhLG4Z1ZIYMmDfhcAPKq",
     #     "base_url": "https://tbai.xin/v1",
-    #     "main_model": "deepseek-v3",
+    #     "main_model": "gemini-2.5-pro-search",
     #     "assistant_model": "gemini-2.5-flash-search"
     # }
     
     # 脉脉API配置
     MAIMAI_CONFIG = {
         "base_url": "https://api.taou.com",
-        "access_token": os.environ.get('MAIMAI_ACCESS_TOKEN', 'ec881ead60b43be8bea12b41e28e4454'),
+        "access_token": os.environ.get('MAIMAI_ACCESS_TOKEN', '6155500de8bb077bbc16fdd649adc932'),
         "device_params": {
             'version': '6.6.82',
             'ver_code': 'android_60682',
