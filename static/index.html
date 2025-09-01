@@ -55,6 +55,18 @@
                         <button id="get-topic-info" class="btn-secondary small">获取信息</button>
                     </div>
                     <textarea id="generated-content" rows="8" placeholder="生成的内容会显示在这里，可编辑后发布"></textarea>
+                    
+                    <!-- 多篇内容显示区域 -->
+                    <div id="multiple-posts-container" class="multiple-posts-container" style="display: none;">
+                        <div class="multiple-posts-header">
+                            <h4>检测到多篇内容</h4>
+                            <div class="posts-count">共 <span id="posts-count">0</span> 篇</div>
+                        </div>
+                        <div id="multiple-posts-list" class="multiple-posts-list">
+                            <!-- 多篇内容列表将动态生成 -->
+                        </div>
+                    </div>
+                    
                     <div class="row">
                         <button id="clear-btn" class="btn-secondary">清空内容</button>
                     </div>

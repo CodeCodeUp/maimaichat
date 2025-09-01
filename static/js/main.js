@@ -12,6 +12,8 @@ class MaimaiPublisher {
         this.selectedTopicId = '';
         this.jsonRetryCount = 0;
         this.maxJsonRetry = 10;
+        this.currentPosts = [];  // 新增：当前解析的多篇内容
+        this.isMultiplePosts = false;  // 新增：是否为多篇模式
         this.initializeElements();
         this.bindEvents();
         this.bootstrap();
@@ -34,6 +36,11 @@ class MaimaiPublisher {
         this.publishBtn = document.getElementById('publish-btn');
         this.schedulePublishBtn = document.getElementById('schedule-publish-btn');
         this.clearBtn = document.getElementById('clear-btn');
+        
+        // 多篇内容相关元素
+        this.multiplePostsContainer = document.getElementById('multiple-posts-container');
+        this.multiplePostsList = document.getElementById('multiple-posts-list');
+        this.postsCount = document.getElementById('posts-count');
 
         // 话题管理
         this.manageTopicsBtn = document.getElementById('manage-topics');
@@ -467,6 +474,25 @@ class MaimaiPublisher {
 
     // 处理AI生成的内容，检测JSON格式并自动回填
     async processGeneratedContent(content) {
+        // 先检测是否为多篇格式
+        const multiplePostsResult = this.extractMultiplePostsFromContent(content);
+        
+        if (multiplePostsResult) {
+            // 多篇模式
+            this.isMultiplePosts = true;
+            this.currentPosts = multiplePostsResult;
+            this.renderMultiplePosts();
+            this.updatePublishButton();
+            this.updateStatus(`检测到多篇内容，共 ${this.currentPosts.length} 篇文章`, 'success');
+            this.jsonRetryCount = 0;
+            this.isRetrying = false;
+            return;
+        }
+        
+        // 单篇模式 - 使用原有逻辑
+        this.isMultiplePosts = false;
+        this.currentPosts = [];
+        
         // 先默认填入原始内容
         if (this.generatedContentTextarea) {
             this.generatedContentTextarea.value = content;
@@ -490,7 +516,7 @@ class MaimaiPublisher {
             
             if (title || jsonContent) {
                 this.updateStatus('JSON格式检测成功，已自动回填', 'success');
-                this.jsonRetryCount = 0; // 重置重试计数器
+                this.jsonRetryCount = 0;
                 this.isRetrying = false;
             }
         } else {
@@ -501,7 +527,7 @@ class MaimaiPublisher {
                 this.updateStatus(`JSON格式解析失败，正在重试 (${this.jsonRetryCount}/${this.maxJsonRetry})`, 'warning');
                 
                 // 添加重试提示消息
-                this.addUserMessage('请按照JSON格式回答，包含title和content字段：\n```json\n{\n  "title": "标题",\n  "content": "内容"\n}\n```');
+                this.addUserMessage('请按照JSON格式回答，包含title和content字段：\n```json\n{\n  "title": "标题",\n  "content": "内容"\n}\n```\n\n或者多篇格式：\n```json\n[\n  {"title": "标题1", "content": "内容1"},\n  {"title": "标题2", "content": "内容2"}\n]\n```');
                 
                 // 延迟1秒后自动重试
                 setTimeout(() => {
@@ -514,6 +540,139 @@ class MaimaiPublisher {
                 this.isRetrying = false;
             }
         }
+    }
+    
+    // 从内容中提取多篇文章格式
+    extractMultiplePostsFromContent(content) {
+        try {
+            // 查找JSON代码块 (```json ... ```)
+            const jsonBlockMatch = content.match(/```json\s*\n?([\s\S]*?)\n?```/);
+            if (jsonBlockMatch) {
+                const jsonStr = jsonBlockMatch[1].trim();
+                const parsed = JSON.parse(jsonStr);
+                
+                if (Array.isArray(parsed) && parsed.length > 0 && 
+                    parsed.every(item => item.title && item.content)) {
+                    return parsed;
+                }
+            }
+            
+            // 查找方括号包围的JSON (寻找数组格式)
+            const arrayMatch = content.match(/\[[\s\S]*?\]/);
+            if (arrayMatch) {
+                const jsonStr = arrayMatch[0];
+                const parsed = JSON.parse(jsonStr);
+                
+                if (Array.isArray(parsed) && parsed.length > 0 && 
+                    parsed.every(item => item.title && item.content)) {
+                    return parsed;
+                }
+            }
+            
+            return null;
+        } catch (error) {
+            return null;
+        }
+    }
+    
+    // 渲染多篇内容
+    renderMultiplePosts() {
+        if (!this.multiplePostsContainer || !this.multiplePostsList) return;
+        
+        // 隐藏单篇内容区域，显示多篇内容区域
+        if (this.generatedContentTextarea) {
+            this.generatedContentTextarea.style.display = 'none';
+        }
+        this.multiplePostsContainer.style.display = 'block';
+        
+        // 更新数量显示
+        if (this.postsCount) {
+            this.postsCount.textContent = this.currentPosts.length;
+        }
+        
+        // 清空并重新渲染列表
+        this.multiplePostsList.innerHTML = '';
+        
+        this.currentPosts.forEach((post, index) => {
+            this.multiplePostsList.appendChild(this.createPostItem(post, index));
+        });
+    }
+    
+    // 创建单个文章项
+    createPostItem(post, index) {
+        const item = document.createElement('div');
+        item.className = 'post-item';
+        
+        item.innerHTML = `
+            <div class="post-item-header">
+                <div class="post-number">#${index + 1}</div>
+                <div class="post-title-editable">
+                    <input type="text" class="post-title-input" value="${this.escapeHtml(post.title)}" placeholder="标题">
+                </div>
+                <div class="post-actions">
+                    <button class="btn-danger small delete-post" data-index="${index}">删除</button>
+                </div>
+            </div>
+            <div class="post-content-editable">
+                <textarea class="post-content-input" rows="4" placeholder="内容">${this.escapeHtml(post.content)}</textarea>
+            </div>
+        `;
+        
+        // 绑定删除事件
+        const deleteBtn = item.querySelector('.delete-post');
+        deleteBtn?.addEventListener('click', () => {
+            this.deletePost(index);
+        });
+        
+        // 绑定编辑事件
+        const titleInput = item.querySelector('.post-title-input');
+        const contentInput = item.querySelector('.post-content-input');
+        
+        titleInput?.addEventListener('input', (e) => {
+            this.currentPosts[index].title = e.target.value;
+        });
+        
+        contentInput?.addEventListener('input', (e) => {
+            this.currentPosts[index].content = e.target.value;
+        });
+        
+        return item;
+    }
+    
+    // 删除文章
+    deletePost(index) {
+        if (confirm('确定要删除这篇文章吗？')) {
+            this.currentPosts.splice(index, 1);
+            
+            if (this.currentPosts.length === 0) {
+                // 如果删完了，切换回单篇模式
+                this.switchToSingleMode();
+            } else {
+                // 重新渲染
+                this.renderMultiplePosts();
+            }
+            this.updatePublishButton();
+        }
+    }
+    
+    // 切换回单篇模式
+    switchToSingleMode() {
+        this.isMultiplePosts = false;
+        this.currentPosts = [];
+        
+        if (this.multiplePostsContainer) {
+            this.multiplePostsContainer.style.display = 'none';
+        }
+        if (this.generatedContentTextarea) {
+            this.generatedContentTextarea.style.display = 'block';
+            this.generatedContentTextarea.value = '';
+        }
+        if (this.titleInput) {
+            this.titleInput.value = '';
+        }
+        
+        this.updatePublishButton();
+        this.updateStatus('已切换回单篇模式', 'info');
     }
 
     // 自动重试生成
@@ -592,6 +751,17 @@ class MaimaiPublisher {
 
     // ===== 发布功能 =====
     async publishContent() {
+        if (this.isMultiplePosts) {
+            // 多篇发布模式
+            await this.publishMultiplePosts();
+        } else {
+            // 单篇发布模式
+            await this.publishSinglePost();
+        }
+    }
+    
+    // 单篇发布
+    async publishSinglePost() {
         const title = this.titleInput?.value.trim();
         const content = this.generatedContentTextarea?.value.trim();
         const topicUrl = this.topicUrlInput?.value.trim();
@@ -602,13 +772,6 @@ class MaimaiPublisher {
             return;
         }
 
-        // 检查话题选择：由于UI已经做了互斥处理，这里只需要简单验证
-        if (selectedTopicId && topicUrl) {
-            // 这种情况理论上不应该发生，但保留检查
-            this.updateStatus('系统错误：话题选择状态异常', 'error');
-            return;
-        }
-
         this.setButtonLoading(this.publishBtn, true);
         this.updateStatus('正在发布到脉脉...', 'info');
 
@@ -616,7 +779,6 @@ class MaimaiPublisher {
             let publishData = { title, content };
             
             if (selectedTopicId) {
-                // 使用选择的话题
                 const selectedTopic = this.topics.find(t => t.id === selectedTopicId);
                 if (selectedTopic) {
                     publishData.topic_id = selectedTopic.id;
@@ -624,7 +786,6 @@ class MaimaiPublisher {
                     this.updateStatus(`使用选择的话题: ${selectedTopic.name}`, 'info');
                 }
             } else if (topicUrl) {
-                // 使用链接提取
                 publishData.topic_url = topicUrl;
                 this.updateStatus('使用话题链接进行发布', 'info');
             } else {
@@ -635,17 +796,103 @@ class MaimaiPublisher {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(publishData),
-                signal: AbortSignal.timeout(180000) // 3分钟超时
+                signal: AbortSignal.timeout(180000)
             });
             const result = await response.json();
             
             if (result.success) {
                 this.updateStatus(`发布成功！${result.message}${result.url ? '\n链接: ' + result.url : ''}`, 'success');
+                this.clearContent();
+                if (this.titleInput) this.titleInput.value = '';
             } else {
                 this.updateStatus(`发布失败: ${result.error}`, 'error');
             }
         } catch (error) {
             this.updateStatus(`发布异常: ${error.message}`, 'error');
+        } finally {
+            this.setButtonLoading(this.publishBtn, false);
+        }
+    }
+    
+    // 多篇发布
+    async publishMultiplePosts() {
+        if (!this.currentPosts || this.currentPosts.length === 0) {
+            this.updateStatus('没有可发布的内容', 'error');
+            return;
+        }
+
+        const validPosts = this.currentPosts.filter(post => 
+            post.title.trim() && post.content.trim()
+        );
+
+        if (validPosts.length === 0) {
+            this.updateStatus('没有有效的文章内容（标题和内容不能为空）', 'error');
+            return;
+        }
+
+        this.setButtonLoading(this.publishBtn, true);
+        this.updateStatus(`开始批量发布 ${validPosts.length} 篇文章...`, 'info');
+
+        const topicUrl = this.topicUrlInput?.value.trim();
+        const selectedTopicId = this.selectedTopicId;
+        
+        let publishData = {};
+        if (selectedTopicId) {
+            const selectedTopic = this.topics.find(t => t.id === selectedTopicId);
+            if (selectedTopic) {
+                publishData.topic_id = selectedTopic.id;
+                publishData.circle_type = selectedTopic.circle_type;
+            }
+        } else if (topicUrl) {
+            publishData.topic_url = topicUrl;
+        }
+
+        let successCount = 0;
+        let failedCount = 0;
+
+        // 并发发布所有文章
+        const publishPromises = validPosts.map(async (post, index) => {
+            try {
+                const postData = {
+                    title: post.title,
+                    content: post.content,
+                    ...publishData
+                };
+
+                const response = await fetch('/api/publish', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(postData),
+                    signal: AbortSignal.timeout(180000)
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    successCount++;
+                    this.updateStatus(`第 ${index + 1} 篇发布成功: ${post.title}`, 'success');
+                } else {
+                    failedCount++;
+                    this.updateStatus(`第 ${index + 1} 篇发布失败: ${post.title} - ${result.error}`, 'error');
+                }
+            } catch (error) {
+                failedCount++;
+                this.updateStatus(`第 ${index + 1} 篇发布异常: ${post.title} - ${error.message}`, 'error');
+            }
+        });
+
+        try {
+            await Promise.all(publishPromises);
+            
+            if (successCount === validPosts.length) {
+                this.updateStatus(`🎉 所有文章发布成功！共 ${successCount} 篇`, 'success');
+                this.clearContent();
+            } else if (successCount > 0) {
+                this.updateStatus(`部分发布成功：成功 ${successCount} 篇，失败 ${failedCount} 篇`, 'warning');
+            } else {
+                this.updateStatus(`所有文章发布失败！共 ${failedCount} 篇`, 'error');
+            }
+        } catch (error) {
+            this.updateStatus(`批量发布过程异常: ${error.message}`, 'error');
         } finally {
             this.setButtonLoading(this.publishBtn, false);
         }
@@ -690,9 +937,15 @@ class MaimaiPublisher {
     }
 
     clearContent() {
-        if (this.generatedContentTextarea) {
-            this.generatedContentTextarea.value = '';
-            this.updatePublishButton();
+        if (this.isMultiplePosts) {
+            // 多篇模式：切换回单篇模式
+            this.switchToSingleMode();
+        } else {
+            // 单篇模式：清空内容
+            if (this.generatedContentTextarea) {
+                this.generatedContentTextarea.value = '';
+                this.updatePublishButton();
+            }
         }
         this.updateStatus('内容已清空', 'success');
     }
@@ -1295,6 +1548,17 @@ class MaimaiPublisher {
 
     // ===== 定时发布管理 =====
     async schedulePublish() {
+        if (this.isMultiplePosts) {
+            // 多篇定时发布模式
+            await this.scheduleMultiplePosts();
+        } else {
+            // 单篇定时发布模式
+            await this.scheduleSinglePost();
+        }
+    }
+    
+    // 单篇定时发布
+    async scheduleSinglePost() {
         const title = this.titleInput?.value.trim();
         const content = this.generatedContentTextarea?.value.trim();
         const topicUrl = this.topicUrlInput?.value.trim();
@@ -1345,6 +1609,95 @@ class MaimaiPublisher {
             this.setButtonLoading(this.schedulePublishBtn, false);
         }
     }
+    
+    // 多篇定时发布
+    async scheduleMultiplePosts() {
+        if (!this.currentPosts || this.currentPosts.length === 0) {
+            this.updateStatus('没有可定时发布的内容', 'error');
+            return;
+        }
+
+        const validPosts = this.currentPosts.filter(post => 
+            post.title.trim() && post.content.trim()
+        );
+
+        if (validPosts.length === 0) {
+            this.updateStatus('没有有效的文章内容（标题和内容不能为空）', 'error');
+            return;
+        }
+
+        this.setButtonLoading(this.schedulePublishBtn, true);
+        this.updateStatus(`开始添加 ${validPosts.length} 篇文章到定时发布队列...`, 'info');
+
+        const topicUrl = this.topicUrlInput?.value.trim();
+        const selectedTopicId = this.selectedTopicId;
+        
+        let publishData = {};
+        if (selectedTopicId) {
+            const selectedTopic = this.topics.find(t => t.id === selectedTopicId);
+            if (selectedTopic) {
+                publishData.topic_id = selectedTopic.id;
+                publishData.circle_type = selectedTopic.circle_type;
+            }
+        } else if (topicUrl) {
+            publishData.topic_url = topicUrl;
+        }
+
+        let successCount = 0;
+        let failedCount = 0;
+        const scheduledTimes = [];
+
+        // 按顺序添加到定时发布队列（这样能保证正确的时间间隔）
+        for (let i = 0; i < validPosts.length; i++) {
+            const post = validPosts[i];
+            try {
+                const postData = {
+                    title: post.title,
+                    content: post.content,
+                    ...publishData
+                };
+
+                const response = await fetch('/api/scheduled-publish', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(postData),
+                    signal: AbortSignal.timeout(180000)
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    successCount++;
+                    const scheduledTime = new Date(result.scheduled_at).toLocaleString();
+                    scheduledTimes.push(scheduledTime);
+                    this.updateStatus(`第 ${i + 1} 篇已添加: ${post.title} (${scheduledTime})`, 'success');
+                } else {
+                    failedCount++;
+                    this.updateStatus(`第 ${i + 1} 篇添加失败: ${post.title} - ${result.error}`, 'error');
+                }
+            } catch (error) {
+                failedCount++;
+                this.updateStatus(`第 ${i + 1} 篇添加异常: ${post.title} - ${error.message}`, 'error');
+            }
+        }
+
+        try {
+            if (successCount === validPosts.length) {
+                this.updateStatus(`🎉 所有文章已添加到定时发布队列！共 ${successCount} 篇`, 'success');
+                this.clearContent();
+            } else if (successCount > 0) {
+                this.updateStatus(`部分添加成功：成功 ${successCount} 篇，失败 ${failedCount} 篇`, 'warning');
+            } else {
+                this.updateStatus(`所有文章添加失败！共 ${failedCount} 篇`, 'error');
+            }
+            
+            // 更新待发布计数
+            await this.loadScheduledPostsCount();
+        } catch (error) {
+            this.updateStatus(`批量定时发布过程异常: ${error.message}`, 'error');
+        } finally {
+            this.setButtonLoading(this.schedulePublishBtn, false);
+        }
+    }
 
     async loadScheduledPostsCount() {
         try {
@@ -1384,18 +1737,45 @@ class MaimaiPublisher {
             return;
         }
         
-        posts.forEach(post => {
+        // 按发布时间排序，显示发布队列顺序
+        const sortedPosts = posts.filter(post => post.status === 'pending')
+            .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
+        
+        const failedPosts = posts.filter(post => post.status === 'failed');
+        
+        // 先显示待发布任务（按队列顺序）
+        sortedPosts.forEach((post, index) => {
+            this.scheduledListContainer.appendChild(this.createScheduledPostItem(post, index + 1));
+        });
+        
+        // 然后显示失败任务
+        failedPosts.forEach(post => {
             this.scheduledListContainer.appendChild(this.createScheduledPostItem(post));
         });
     }
 
-    createScheduledPostItem(post) {
+    createScheduledPostItem(post, queueNumber = null) {
         const item = document.createElement('div');
         item.className = `scheduled-post-item ${post.status}`;
         
         const scheduledTime = new Date(post.scheduled_at).toLocaleString();
         
-        let statusText = post.status === 'pending' ? '等待发布' : '发布失败';
+        let statusText = '';
+        let statusClass = '';
+        if (post.status === 'pending') {
+            const now = new Date();
+            const scheduled = new Date(post.scheduled_at);
+            if (now >= scheduled) {
+                statusText = '准备发布';
+                statusClass = 'status-ready';
+            } else {
+                statusText = queueNumber ? `队列第${queueNumber}位` : '等待中';
+                statusClass = 'status-pending';
+            }
+        } else if (post.status === 'failed') {
+            statusText = '发布失败';
+            statusClass = 'status-failed';
+        }
         
         // 话题信息显示
         let topicInfo = '';
@@ -1405,10 +1785,19 @@ class MaimaiPublisher {
             topicInfo = `<div class="topic-info">话题链接: ${this.escapeHtml(post.topic_url)}</div>`;
         }
         
+        // 队列序号显示
+        let queueBadge = '';
+        if (queueNumber) {
+            queueBadge = `<div class="queue-number">#${queueNumber}</div>`;
+        }
+        
         item.innerHTML = `
             <div class="post-header">
-                <div class="post-title">${this.escapeHtml(post.title)}</div>
-                <div class="post-status">${statusText}</div>
+                <div class="post-title-container">
+                    ${queueBadge}
+                    <div class="post-title">${this.escapeHtml(post.title)}</div>
+                </div>
+                <div class="post-status ${statusClass}">${statusText}</div>
             </div>
             ${topicInfo}
             <div class="post-content">${this.escapeHtml(post.content.substring(0, 100))}...</div>
@@ -1418,6 +1807,7 @@ class MaimaiPublisher {
                     <button class="btn-danger small delete-scheduled-post" data-id="${post.id}">删除</button>
                 </div>
             </div>
+            ${post.error ? `<div class="post-error">错误: ${this.escapeHtml(post.error)}</div>` : ''}
         `;
 
         const deleteBtn = item.querySelector('.delete-scheduled-post');
@@ -1469,14 +1859,40 @@ class MaimaiPublisher {
 
     // ===== 工具方法 =====
     updatePublishButton() {
-        if (!this.publishBtn || !this.generatedContentTextarea) return;
+        if (!this.publishBtn) return;
         
-        const hasContent = this.generatedContentTextarea.value.trim().length > 0;
+        let hasContent = false;
+        
+        if (this.isMultiplePosts) {
+            // 多篇模式：检查是否有有效的文章
+            hasContent = this.currentPosts.length > 0 && 
+                        this.currentPosts.some(post => post.title.trim() && post.content.trim());
+        } else {
+            // 单篇模式：检查文本框内容
+            hasContent = this.generatedContentTextarea && 
+                        this.generatedContentTextarea.value.trim().length > 0;
+        }
+        
         this.publishBtn.disabled = !hasContent;
         
         // 同时更新定时发布按钮
         if (this.schedulePublishBtn) {
             this.schedulePublishBtn.disabled = !hasContent;
+        }
+        
+        // 更新按钮文字
+        if (this.isMultiplePosts && this.currentPosts.length > 0) {
+            const btnText = this.publishBtn.querySelector('.btn-text');
+            const schedBtnText = this.schedulePublishBtn?.querySelector('.btn-text');
+            
+            if (btnText) btnText.textContent = `发布 (${this.currentPosts.length}篇)`;
+            if (schedBtnText) schedBtnText.textContent = `定时发布 (${this.currentPosts.length}篇)`;
+        } else {
+            const btnText = this.publishBtn.querySelector('.btn-text');
+            const schedBtnText = this.schedulePublishBtn?.querySelector('.btn-text');
+            
+            if (btnText) btnText.textContent = '发布';
+            if (schedBtnText) schedBtnText.textContent = '定时发布';
         }
     }
 

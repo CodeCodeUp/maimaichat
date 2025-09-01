@@ -46,12 +46,23 @@ class ScheduledPostsStore:
     
     def add_post(self, title: str, content: str, topic_url: str = None, 
                  topic_id: str = None, circle_type: str = None, topic_name: str = None) -> str:
-        """添加定时发布任务，随机设置5-20分钟后发布"""
+        """添加定时发布任务，基于最后一篇待发布时间计算发布时间"""
         post_id = str(uuid.uuid4())
         
-        # 随机生成5-20分钟后的发布时间
+        # 获取当前所有待发布任务的最晚发布时间
+        latest_scheduled_time = self._get_latest_scheduled_time()
+        
+        # 随机生成5-20分钟的延迟
         delay_minutes = random.randint(5, 20)
-        scheduled_at = datetime.now() + timedelta(minutes=delay_minutes)
+        
+        if latest_scheduled_time:
+            # 如果有待发布任务，从最晚的发布时间再加上延迟
+            scheduled_at = latest_scheduled_time + timedelta(minutes=delay_minutes)
+            logger.info(f"基于最后待发布时间计算：{latest_scheduled_time.strftime('%H:%M:%S')} + {delay_minutes}分钟")
+        else:
+            # 如果没有待发布任务，从当前时间开始计算
+            scheduled_at = datetime.now() + timedelta(minutes=delay_minutes)
+            logger.info(f"基于当前时间计算：{datetime.now().strftime('%H:%M:%S')} + {delay_minutes}分钟")
         
         post_data = {
             "id": post_id,
@@ -60,7 +71,7 @@ class ScheduledPostsStore:
             "topic_url": topic_url,
             "topic_id": topic_id,
             "circle_type": circle_type,
-            "topic_name": topic_name,  # 新增：保存话题名称
+            "topic_name": topic_name,
             "created_at": datetime.now().isoformat(),
             "scheduled_at": scheduled_at.isoformat(),
             "status": "pending"
@@ -69,8 +80,20 @@ class ScheduledPostsStore:
         self.posts[post_id] = post_data
         self.save()
         
-        logger.info(f"已添加定时发布任务: {title} (预计 {delay_minutes} 分钟后发布)")
+        logger.info(f"已添加定时发布任务: {title} (预计 {scheduled_at.strftime('%Y-%m-%d %H:%M:%S')} 发布)")
         return post_id
+    
+    def _get_latest_scheduled_time(self) -> Optional[datetime]:
+        """获取所有待发布任务中最晚的发布时间"""
+        latest_time = None
+        
+        for post_data in self.posts.values():
+            if post_data["status"] == "pending":
+                scheduled_time = datetime.fromisoformat(post_data["scheduled_at"])
+                if latest_time is None or scheduled_time > latest_time:
+                    latest_time = scheduled_time
+        
+        return latest_time
     
     def get_pending_posts(self) -> List[Dict]:
         """获取待发布的任务（已到发布时间）"""
@@ -162,14 +185,30 @@ class ScheduledPostsStore:
         return self.posts.get(post_id)
     
     def reschedule_post(self, post_id: str, delay_minutes: int = None) -> bool:
-        """重新安排发布时间"""
+        """重新安排发布时间，保持队列顺序"""
         if post_id not in self.posts:
             return False
         
         if delay_minutes is None:
             delay_minutes = random.randint(5, 20)
         
-        new_scheduled_at = datetime.now() + timedelta(minutes=delay_minutes)
+        # 获取当前所有待发布任务的最晚发布时间（排除当前要重新安排的任务）
+        latest_scheduled_time = None
+        for pid, post_data in self.posts.items():
+            if pid != post_id and post_data["status"] == "pending":
+                scheduled_time = datetime.fromisoformat(post_data["scheduled_at"])
+                if latest_scheduled_time is None or scheduled_time > latest_scheduled_time:
+                    latest_scheduled_time = scheduled_time
+        
+        if latest_scheduled_time:
+            # 如果还有其他待发布任务，排在最后
+            new_scheduled_at = latest_scheduled_time + timedelta(minutes=delay_minutes)
+            logger.info(f"重新安排任务排队：基于最后任务时间 {latest_scheduled_time.strftime('%H:%M:%S')} + {delay_minutes}分钟")
+        else:
+            # 如果没有其他待发布任务，从当前时间开始
+            new_scheduled_at = datetime.now() + timedelta(minutes=delay_minutes)
+            logger.info(f"重新安排任务：基于当前时间 + {delay_minutes}分钟")
+        
         self.posts[post_id]["scheduled_at"] = new_scheduled_at.isoformat()
         self.posts[post_id]["status"] = "pending"
         
@@ -179,5 +218,5 @@ class ScheduledPostsStore:
             del self.posts[post_id]["failed_at"]
         
         self.save()
-        logger.info(f"已重新安排任务发布时间: {self.posts[post_id]['title']} ({delay_minutes} 分钟后)")
+        logger.info(f"已重新安排任务发布时间: {self.posts[post_id]['title']} ({new_scheduled_at.strftime('%Y-%m-%d %H:%M:%S')})")
         return True
