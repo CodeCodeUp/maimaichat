@@ -64,24 +64,16 @@ def generate_content():
         if not data:
             return jsonify({'success': False, 'error': '缺少请求体'}), 400
 
-        # 支持两种模式：
-        # 1) 旧版：传入topic/custom_prompt
-        # 2) 新版：传入messages数组
+        if 'messages' not in data:
+            return jsonify({'success': False, 'error': '缺少必需参数：messages'}), 400
+        
+        messages = data['messages']
+        if not isinstance(messages, list) or not all('role' in m and 'content' in m for m in messages):
+            return jsonify({'success': False, 'error': 'messages格式不正确'}), 400
+        
         use_main_model = data.get('use_main_model', True)
-
-        if 'messages' in data:
-            messages = data['messages']
-            if not isinstance(messages, list) or not all('role' in m and 'content' in m for m in messages):
-                return jsonify({'success': False, 'error': 'messages格式不正确'}), 400
-            logger.info("开始对话生成，消息数：%d", len(messages))
-            result = ai_generator.chat(messages=messages, use_main_model=use_main_model)
-        else:
-            if 'topic' not in data:
-                return jsonify({'success': False, 'error': '缺少必需参数：topic 或 messages'}), 400
-            topic = data['topic']
-            custom_prompt = data.get('custom_prompt', '')
-            logger.info(f"开始生成内容，主题：{topic}")
-            result = ai_generator.generate_content(topic=topic, custom_prompt=custom_prompt, use_main_model=use_main_model)
+        logger.info("开始对话生成，消息数：%d", len(messages))
+        result = ai_generator.chat(messages=messages, use_main_model=use_main_model)
 
         return jsonify(result)
 

@@ -20,7 +20,7 @@ class AIContentGenerator:
     def chat(self,
              messages: List[Dict[str, str]],
              use_main_model: bool = True,
-             max_tokens: int = 2000,
+             max_tokens: int = 20000,
              temperature: float = 0.7) -> Dict[str, Any]:
         """
         使用对话历史生成回复
@@ -75,15 +75,6 @@ class AIContentGenerator:
         except Exception as e:
             logger.error(f"AI对话异常：{str(e)}")
             return {'success': False, 'error': f'生成时发生错误：{str(e)}'}
-
-    # 兼容旧接口：从单一主题+提示词构造对话
-    def generate_content(self, topic: str, custom_prompt: str = "", use_main_model: bool = True) -> Dict[str, Any]:
-        system_prompt = custom_prompt or "请以专业、贴近职场人士的口吻，围绕用户给定的主题撰写一篇适合在脉脉发布的文章。要求：\n- 先给出吸引人的开头\n- 三到五个要点阐述\n- 结尾给出2-3个互动问题引导讨论。"
-        messages = [
-            { 'role': 'system', 'content': system_prompt },
-            { 'role': 'user', 'content': f"主题：{topic}" }
-        ]
-        return self.chat(messages, use_main_model)
 
     def test_connection(self) -> Dict[str, Any]:
         try:
