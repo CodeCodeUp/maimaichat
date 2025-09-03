@@ -54,6 +54,16 @@
                         <input type="url" id="topic-url" placeholder="或输入话题链接" class="grow">
                         <button id="get-topic-info" class="btn-secondary small">获取信息</button>
                     </div>
+                    
+                    <!-- 关键词选择区域 -->
+                    <div id="keyword-selection" class="row" style="display: none;">
+                        <label class="small-label">选择关键词（必选）:</label>
+                        <select id="keyword-select" class="grow">
+                            <option value="">请选择关键词</option>
+                        </select>
+                        <button id="manage-keywords" class="btn-secondary small">管理</button>
+                    </div>
+                    
                     <textarea id="generated-content" rows="8" placeholder="生成的内容会显示在这里，可编辑后发布"></textarea>
                     
                     <!-- 多篇内容显示区域 -->
@@ -268,6 +278,63 @@
             </div>
             <div class="modal-footer">
                 <button id="close-prompt-modal-footer" class="btn-secondary">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 关键词管理弹窗 -->
+    <div id="keyword-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>分组关键词管理</h3>
+                <button class="modal-close" id="close-keyword-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="keyword-left-panel">
+                    <!-- 分组选择区域 -->
+                    <div class="keyword-group-section">
+                        <h4>选择分组</h4>
+                        <select id="keyword-group-select" class="grow">
+                            <option value="">选择要管理的分组</option>
+                        </select>
+                        <div class="group-info" id="group-keyword-info">
+                            <p>当前分组：<span id="current-group-name">未选择</span></p>
+                            <p>关键词数量：<span id="current-group-count">0</span></p>
+                        </div>
+                    </div>
+
+                    <!-- 添加关键词区域 -->
+                    <div class="keyword-add-section">
+                        <h4>添加关键词</h4>
+                        <div class="row">
+                            <input type="text" id="new-keyword-input" placeholder="输入新关键词（如 #阿里巴巴）" class="grow">
+                            <button id="add-keyword-btn" class="btn-primary small" disabled>添加</button>
+                        </div>
+                    </div>
+
+                    <!-- 批量导入区域 -->
+                    <div class="keyword-batch-section">
+                        <h4>批量设置</h4>
+                        <textarea id="batch-keywords-input" rows="4" placeholder="每行一个关键词，例如：&#10;#阿里巴巴&#10;#字节跳动&#10;#小米"></textarea>
+                        <div class="row">
+                            <button id="batch-set-keywords-btn" class="btn-success small" disabled>批量设置</button>
+                            <button id="clear-all-keywords-btn" class="btn-danger small" disabled>清空全部</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="keyword-right-panel">
+                    <!-- 关键词列表区域 -->
+                    <div class="keyword-list-section">
+                        <h4>当前关键词</h4>
+                        <div id="keywords-list-container" class="keywords-list-container">
+                            <p class="no-group-selected">请先选择一个分组</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="close-keyword-modal-footer" class="btn-secondary">关闭</button>
             </div>
         </div>
     </div>

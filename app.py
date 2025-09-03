@@ -49,6 +49,11 @@ from modules.simple_prompt_store import PromptStore
 PROMPT_FILE = os.path.join('data', 'prompts.json')
 prompt_store = PromptStore(PROMPT_FILE)
 
+# 初始化分组关键词存储
+from modules.group_keywords_store import GroupKeywordsStore
+GROUP_KEYWORDS_FILE = os.path.join('data', 'group_keywords.json')
+group_keywords_store = GroupKeywordsStore(GROUP_KEYWORDS_FILE)
+
 
 @app.route('/')
 def index():
@@ -650,6 +655,99 @@ def save_prompts():
             
     except Exception as e:
         logger.error(f"保存提示词失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ===== 分组关键词管理API =====
+
+@app.route('/api/group-keywords', methods=['GET'])
+def get_group_keywords():
+    """获取所有分组关键词"""
+    try:
+        keywords = group_keywords_store.get_all_group_keywords()
+        return jsonify({'success': True, 'data': keywords})
+    except Exception as e:
+        logger.error(f"获取分组关键词失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/group-keywords/<group_name>', methods=['GET'])
+def get_group_keywords_by_name(group_name):
+    """获取指定分组的关键词"""
+    try:
+        keywords = group_keywords_store.get_group_keywords(group_name)
+        has_keywords = group_keywords_store.has_keywords(group_name)
+        return jsonify({
+            'success': True, 
+            'data': {
+                'group_name': group_name,
+                'keywords': keywords,
+                'has_keywords': has_keywords
+            }
+        })
+    except Exception as e:
+        logger.error(f"获取分组关键词失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/group-keywords/<group_name>', methods=['PUT'])
+def update_group_keywords(group_name):
+    """更新分组的关键词"""
+    try:
+        data = request.get_json()
+        if not data or 'keywords' not in data:
+            return jsonify({'success': False, 'error': '缺少必需参数：keywords'}), 400
+        
+        keywords = data['keywords']
+        if not isinstance(keywords, list):
+            return jsonify({'success': False, 'error': 'keywords必须是数组格式'}), 400
+        
+        success = group_keywords_store.update_group_keywords(group_name, keywords)
+        if success:
+            return jsonify({'success': True, 'message': f'分组 "{group_name}" 关键词更新成功'})
+        else:
+            return jsonify({'success': False, 'error': '更新失败'}), 500
+            
+    except Exception as e:
+        logger.error(f"更新分组关键词失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/group-keywords/<group_name>/keywords', methods=['POST'])
+def add_keyword_to_group(group_name):
+    """为分组添加关键词"""
+    try:
+        data = request.get_json()
+        if not data or 'keyword' not in data:
+            return jsonify({'success': False, 'error': '缺少必需参数：keyword'}), 400
+        
+        keyword = data['keyword']
+        if not isinstance(keyword, str) or not keyword.strip():
+            return jsonify({'success': False, 'error': '关键词不能为空'}), 400
+        
+        success = group_keywords_store.add_keyword_to_group(group_name, keyword.strip())
+        if success:
+            return jsonify({'success': True, 'message': f'关键词 "{keyword.strip()}" 添加成功'})
+        else:
+            return jsonify({'success': False, 'error': '添加失败'}), 500
+            
+    except Exception as e:
+        logger.error(f"添加关键词失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/group-keywords/<group_name>/keywords/<keyword>', methods=['DELETE'])
+def remove_keyword_from_group(group_name, keyword):
+    """从分组中移除关键词"""
+    try:
+        success = group_keywords_store.remove_keyword_from_group(group_name, keyword)
+        if success:
+            return jsonify({'success': True, 'message': f'关键词 "{keyword}" 删除成功'})
+        else:
+            return jsonify({'success': False, 'error': '关键词不存在或删除失败'}), 404
+            
+    except Exception as e:
+        logger.error(f"删除关键词失败: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

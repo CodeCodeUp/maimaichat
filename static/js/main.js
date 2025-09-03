@@ -16,6 +16,9 @@ class MaimaiPublisher {
         this.isMultiplePosts = false;  // 新增：是否为多篇模式
         this.aiConfigs = {};  // 新增：AI配置列表
         this.currentAiConfigId = '';  // 新增：当前AI配置ID
+        this.groupKeywords = {}; // 新增：分组关键词数据
+        this.selectedKeyword = ''; // 新增：当前选择的关键词
+        this.currentGroupHasKeywords = false; // 新增：当前选择的分组是否有关键词
         this.initializeElements();
         this.bindEvents();
         this.bootstrap();
@@ -38,6 +41,25 @@ class MaimaiPublisher {
         this.publishBtn = document.getElementById('publish-btn');
         this.schedulePublishBtn = document.getElementById('schedule-publish-btn');
         this.clearBtn = document.getElementById('clear-btn');
+        
+        // 关键词选择相关元素
+        this.keywordSelectionDiv = document.getElementById('keyword-selection');
+        this.keywordSelect = document.getElementById('keyword-select');
+        this.manageKeywordsBtn = document.getElementById('manage-keywords');
+        
+        // 关键词管理弹窗相关元素
+        this.keywordModal = document.getElementById('keyword-modal');
+        this.closeKeywordModalBtn = document.getElementById('close-keyword-modal');
+        this.closeKeywordModalFooterBtn = document.getElementById('close-keyword-modal-footer');
+        this.keywordGroupSelect = document.getElementById('keyword-group-select');
+        this.currentGroupName = document.getElementById('current-group-name');
+        this.currentGroupCount = document.getElementById('current-group-count');
+        this.newKeywordInput = document.getElementById('new-keyword-input');
+        this.addKeywordBtn = document.getElementById('add-keyword-btn');
+        this.batchKeywordsInput = document.getElementById('batch-keywords-input');
+        this.batchSetKeywordsBtn = document.getElementById('batch-set-keywords-btn');
+        this.clearAllKeywordsBtn = document.getElementById('clear-all-keywords-btn');
+        this.keywordsListContainer = document.getElementById('keywords-list-container');
         
         // 多篇内容相关元素
         this.multiplePostsContainer = document.getElementById('multiple-posts-container');
@@ -131,6 +153,32 @@ class MaimaiPublisher {
         this.topicSelect?.addEventListener('change', () => this.onTopicSelectChange());
         this.topicUrlInput?.addEventListener('input', () => this.onTopicUrlInput());
 
+        // 关键词相关
+        this.keywordSelect?.addEventListener('change', () => this.onKeywordSelectChange());
+        this.manageKeywordsBtn?.addEventListener('click', () => this.openKeywordManageModal());
+        
+        // 关键词管理弹窗相关
+        this.closeKeywordModalBtn?.addEventListener('click', () => this.closeKeywordManageModal());
+        this.closeKeywordModalFooterBtn?.addEventListener('click', () => this.closeKeywordManageModal());
+        this.keywordGroupSelect?.addEventListener('change', () => this.onKeywordGroupSelectChange());
+        this.newKeywordInput?.addEventListener('input', () => this.updateKeywordButtons());
+        this.newKeywordInput?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                this.addKeyword();
+            }
+        });
+        this.addKeywordBtn?.addEventListener('click', () => this.addKeyword());
+        this.batchKeywordsInput?.addEventListener('input', () => this.updateKeywordButtons());
+        this.batchSetKeywordsBtn?.addEventListener('click', () => this.batchSetKeywords());
+        this.clearAllKeywordsBtn?.addEventListener('click', () => this.clearAllKeywords());
+        
+        // 点击关键词弹窗外部关闭
+        this.keywordModal?.addEventListener('click', (e) => {
+            if (e.target === this.keywordModal) {
+                this.closeKeywordManageModal();
+            }
+        });
+
         // 话题管理
         this.manageTopicsBtn?.addEventListener('click', () => this.openTopicModal());
         this.closeTopicModalBtn?.addEventListener('click', () => this.closeTopicModal());
@@ -207,6 +255,7 @@ class MaimaiPublisher {
         await this.loadPrompts();
         await this.loadGroups();
         await this.loadTopics();
+        await this.loadGroupKeywords();  // 新增：加载分组关键词
         await this.loadScheduledPostsCount();
         await this.loadAiConfigs();  // 新增：加载AI配置
         this.addSystemMessage(this.currentPrompt || '你是一个资深新媒体编辑，擅长将话题梳理成适合脉脉的内容。');
@@ -817,11 +866,23 @@ class MaimaiPublisher {
             return;
         }
 
+        // 检查关键词要求
+        if (this.currentGroupHasKeywords && !this.selectedKeyword) {
+            this.updateStatus('当前话题分组需要选择关键词才能发布', 'error');
+            return;
+        }
+
+        // 添加关键词到内容前面
+        let finalContent = content;
+        if (this.selectedKeyword) {
+            finalContent = `${this.selectedKeyword} ${content}`;
+        }
+
         this.setButtonLoading(this.publishBtn, true);
         this.updateStatus('正在发布到脉脉...', 'info');
 
         try {
-            let publishData = { title, content };
+            let publishData = { title, content: finalContent };
             
             if (selectedTopicId) {
                 const selectedTopic = this.topics.find(t => t.id === selectedTopicId);
@@ -875,6 +936,12 @@ class MaimaiPublisher {
             return;
         }
 
+        // 检查关键词要求
+        if (this.currentGroupHasKeywords && !this.selectedKeyword) {
+            this.updateStatus('当前话题分组需要选择关键词才能发布', 'error');
+            return;
+        }
+
         this.setButtonLoading(this.publishBtn, true);
         this.updateStatus(`开始批量发布 ${validPosts.length} 篇文章...`, 'info');
 
@@ -898,9 +965,15 @@ class MaimaiPublisher {
         // 并发发布所有文章
         const publishPromises = validPosts.map(async (post, index) => {
             try {
+                // 添加关键词到内容前面
+                let finalContent = post.content;
+                if (this.selectedKeyword) {
+                    finalContent = `${this.selectedKeyword} ${post.content}`;
+                }
+                
                 const postData = {
                     title: post.title,
-                    content: post.content,
+                    content: finalContent,
                     ...publishData
                 };
 
@@ -995,6 +1068,356 @@ class MaimaiPublisher {
         this.updateStatus('内容已清空', 'success');
     }
 
+    // ===== 分组关键词管理 =====
+    async loadGroupKeywords() {
+        try {
+            const response = await fetch('/api/group-keywords');
+            const result = await response.json();
+            if (result.success) {
+                this.groupKeywords = result.data || {};
+                this.updateStatus('分组关键词加载完成', 'success');
+            } else {
+                throw new Error(result.error || '分组关键词加载失败');
+            }
+        } catch (error) {
+            console.error('分组关键词加载失败:', error);
+            this.updateStatus(`分组关键词加载失败: ${error.message}`, 'error');
+            this.groupKeywords = {};
+        }
+    }
+
+    onKeywordSelectChange() {
+        this.selectedKeyword = this.keywordSelect?.value || '';
+        this.updatePublishButton();
+    }
+
+    updateKeywordSelection() {
+        if (!this.keywordSelectionDiv || !this.keywordSelect) return;
+        
+        // 获取当前选择的分组
+        const selectedGroup = this.getCurrentSelectedGroup();
+        
+        if (!selectedGroup) {
+            // 没有选择分组，隐藏关键词选择
+            this.keywordSelectionDiv.style.display = 'none';
+            this.currentGroupHasKeywords = false;
+            this.selectedKeyword = '';
+            return;
+        }
+        
+        // 检查当前分组是否有关键词
+        const keywords = this.groupKeywords[selectedGroup] || [];
+        this.currentGroupHasKeywords = keywords.length > 0;
+        
+        if (this.currentGroupHasKeywords) {
+            // 显示关键词选择
+            this.keywordSelectionDiv.style.display = 'flex';
+            
+            // 更新关键词选择框
+            this.keywordSelect.innerHTML = '<option value="">请选择关键词</option>';
+            keywords.forEach(keyword => {
+                const option = document.createElement('option');
+                option.value = keyword;
+                option.textContent = keyword;
+                this.keywordSelect.appendChild(option);
+            });
+            
+            // 重置选择
+            this.selectedKeyword = '';
+        } else {
+            // 隐藏关键词选择
+            this.keywordSelectionDiv.style.display = 'none';
+            this.selectedKeyword = '';
+        }
+        
+        this.updatePublishButton();
+    }
+
+    getCurrentSelectedGroup() {
+        // 如果选择了话题，从话题中获取分组
+        if (this.selectedTopicId) {
+            const selectedTopic = this.topics.find(t => t.id === this.selectedTopicId);
+            return selectedTopic?.group || null;
+        }
+        
+        // 如果没有选择话题但有分组筛选，使用筛选的分组
+        const groupFilter = this.topicGroupFilter?.value;
+        return groupFilter || null;
+    }
+
+    // ===== 关键词管理弹窗 =====
+    
+    openKeywordManageModal() {
+        if (!this.keywordModal) return;
+        this.updateKeywordGroupSelect();
+        this.resetKeywordModal();
+        this.keywordModal.style.display = 'block';
+    }
+    
+    closeKeywordManageModal() {
+        if (!this.keywordModal) return;
+        this.keywordModal.style.display = 'none';
+        this.resetKeywordModal();
+    }
+    
+    resetKeywordModal() {
+        // 重置选择的分组
+        if (this.keywordGroupSelect) this.keywordGroupSelect.value = '';
+        if (this.currentGroupName) this.currentGroupName.textContent = '未选择';
+        if (this.currentGroupCount) this.currentGroupCount.textContent = '0';
+        
+        // 清空输入框
+        if (this.newKeywordInput) this.newKeywordInput.value = '';
+        if (this.batchKeywordsInput) this.batchKeywordsInput.value = '';
+        
+        // 重置按钮状态
+        this.updateKeywordButtons();
+        
+        // 清空关键词列表
+        if (this.keywordsListContainer) {
+            this.keywordsListContainer.innerHTML = '<p class="no-group-selected">请先选择一个分组</p>';
+        }
+    }
+    
+    updateKeywordGroupSelect() {
+        if (!this.keywordGroupSelect) return;
+        
+        this.keywordGroupSelect.innerHTML = '<option value="">选择要管理的分组</option>';
+        this.groups.forEach(group => {
+            const option = document.createElement('option');
+            option.value = group;
+            option.textContent = group;
+            this.keywordGroupSelect.appendChild(option);
+        });
+    }
+    
+    async onKeywordGroupSelectChange() {
+        const selectedGroup = this.keywordGroupSelect?.value;
+        if (!selectedGroup) {
+            this.resetKeywordModalContent();
+            return;
+        }
+        
+        // 更新分组信息显示
+        if (this.currentGroupName) {
+            this.currentGroupName.textContent = selectedGroup;
+        }
+        
+        // 加载该分组的关键词
+        await this.loadGroupKeywordsForModal(selectedGroup);
+        this.updateKeywordButtons();
+    }
+    
+    resetKeywordModalContent() {
+        if (this.currentGroupName) this.currentGroupName.textContent = '未选择';
+        if (this.currentGroupCount) this.currentGroupCount.textContent = '0';
+        if (this.keywordsListContainer) {
+            this.keywordsListContainer.innerHTML = '<p class="no-group-selected">请先选择一个分组</p>';
+        }
+        this.updateKeywordButtons();
+    }
+    
+    async loadGroupKeywordsForModal(groupName) {
+        try {
+            const response = await fetch(`/api/group-keywords/${encodeURIComponent(groupName)}`);
+            const result = await response.json();
+            
+            if (result.success) {
+                const keywords = result.data.keywords || [];
+                this.renderKeywordsList(keywords);
+                
+                if (this.currentGroupCount) {
+                    this.currentGroupCount.textContent = keywords.length.toString();
+                }
+                
+                // 将关键词填入批量输入框
+                if (this.batchKeywordsInput) {
+                    this.batchKeywordsInput.value = keywords.join('\\n');
+                }
+            } else {
+                throw new Error(result.error || '加载分组关键词失败');
+            }
+        } catch (error) {
+            console.error('加载分组关键词失败:', error);
+            this.updateStatus(`加载分组关键词失败: ${error.message}`, 'error');
+            this.renderKeywordsList([]);
+        }
+    }
+    
+    renderKeywordsList(keywords) {
+        if (!this.keywordsListContainer) return;
+        
+        if (keywords.length === 0) {
+            this.keywordsListContainer.innerHTML = '<p class="no-keywords">该分组暂无关键词</p>';
+            return;
+        }
+        
+        this.keywordsListContainer.innerHTML = '';
+        keywords.forEach((keyword, index) => {
+            const item = document.createElement('div');
+            item.className = 'keyword-item';
+            item.innerHTML = `
+                <span class="keyword-text">${this.escapeHtml(keyword)}</span>
+                <button class="btn-danger small delete-keyword" data-keyword="${this.escapeHtml(keyword)}">删除</button>
+            `;
+            
+            // 绑定删除事件
+            const deleteBtn = item.querySelector('.delete-keyword');
+            deleteBtn?.addEventListener('click', () => {
+                this.deleteKeyword(keyword);
+            });
+            
+            this.keywordsListContainer.appendChild(item);
+        });
+    }
+    
+    updateKeywordButtons() {
+        const hasGroup = this.keywordGroupSelect?.value;
+        const hasNewKeyword = this.newKeywordInput?.value.trim();
+        const hasBatchKeywords = this.batchKeywordsInput?.value.trim();
+        
+        // 更新添加按钮
+        if (this.addKeywordBtn) {
+            this.addKeywordBtn.disabled = !hasGroup || !hasNewKeyword;
+        }
+        
+        // 更新批量操作按钮
+        if (this.batchSetKeywordsBtn) {
+            this.batchSetKeywordsBtn.disabled = !hasGroup || !hasBatchKeywords;
+        }
+        
+        if (this.clearAllKeywordsBtn) {
+            this.clearAllKeywordsBtn.disabled = !hasGroup;
+        }
+    }
+    
+    async addKeyword() {
+        const groupName = this.keywordGroupSelect?.value;
+        const keyword = this.newKeywordInput?.value.trim();
+        
+        if (!groupName || !keyword) {
+            this.updateStatus('请选择分组并输入关键词', 'error');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/group-keywords/${encodeURIComponent(groupName)}/keywords`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ keyword })
+            });
+            const result = await response.json();
+            
+            if (result.success) {
+                this.newKeywordInput.value = '';
+                await this.loadGroupKeywordsForModal(groupName);
+                await this.loadGroupKeywords(); // 更新全局关键词数据
+                this.updateKeywordSelection(); // 更新发布页面的关键词选择
+                this.updateStatus(`关键词 "${keyword}" 添加成功`, 'success');
+            } else {
+                throw new Error(result.error || '添加关键词失败');
+            }
+        } catch (error) {
+            console.error('添加关键词失败:', error);
+            this.updateStatus(`添加关键词失败: ${error.message}`, 'error');
+        }
+    }
+    
+    async deleteKeyword(keyword) {
+        const groupName = this.keywordGroupSelect?.value;
+        if (!groupName) return;
+        
+        if (!confirm(`确定要删除关键词 "${keyword}" 吗？`)) return;
+        
+        try {
+            const response = await fetch(`/api/group-keywords/${encodeURIComponent(groupName)}/keywords/${encodeURIComponent(keyword)}`, {
+                method: 'DELETE'
+            });
+            const result = await response.json();
+            
+            if (result.success) {
+                await this.loadGroupKeywordsForModal(groupName);
+                await this.loadGroupKeywords(); // 更新全局关键词数据
+                this.updateKeywordSelection(); // 更新发布页面的关键词选择
+                this.updateStatus(`关键词 "${keyword}" 删除成功`, 'success');
+            } else {
+                throw new Error(result.error || '删除关键词失败');
+            }
+        } catch (error) {
+            console.error('删除关键词失败:', error);
+            this.updateStatus(`删除关键词失败: ${error.message}`, 'error');
+        }
+    }
+    
+    async batchSetKeywords() {
+        const groupName = this.keywordGroupSelect?.value;
+        const keywordsText = this.batchKeywordsInput?.value.trim();
+        
+        if (!groupName || !keywordsText) {
+            this.updateStatus('请选择分组并输入关键词', 'error');
+            return;
+        }
+        
+        // 解析关键词列表
+        const keywords = keywordsText.split('\\n')
+            .map(k => k.trim())
+            .filter(k => k.length > 0);
+        
+        if (keywords.length === 0) {
+            this.updateStatus('请输入有效的关键词', 'error');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/group-keywords/${encodeURIComponent(groupName)}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ keywords })
+            });
+            const result = await response.json();
+            
+            if (result.success) {
+                await this.loadGroupKeywordsForModal(groupName);
+                await this.loadGroupKeywords(); // 更新全局关键词数据
+                this.updateKeywordSelection(); // 更新发布页面的关键词选择
+                this.updateStatus(`分组 "${groupName}" 关键词批量设置成功，共 ${keywords.length} 个`, 'success');
+            } else {
+                throw new Error(result.error || '批量设置关键词失败');
+            }
+        } catch (error) {
+            console.error('批量设置关键词失败:', error);
+            this.updateStatus(`批量设置关键词失败: ${error.message}`, 'error');
+        }
+    }
+    
+    async clearAllKeywords() {
+        const groupName = this.keywordGroupSelect?.value;
+        if (!groupName) return;
+        
+        if (!confirm(`确定要清空分组 "${groupName}" 的所有关键词吗？`)) return;
+        
+        try {
+            const response = await fetch(`/api/group-keywords/${encodeURIComponent(groupName)}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ keywords: [] })
+            });
+            const result = await response.json();
+            
+            if (result.success) {
+                await this.loadGroupKeywordsForModal(groupName);
+                await this.loadGroupKeywords(); // 更新全局关键词数据
+                this.updateKeywordSelection(); // 更新发布页面的关键词选择
+                this.updateStatus(`分组 "${groupName}" 的所有关键词已清空`, 'success');
+            } else {
+                throw new Error(result.error || '清空关键词失败');
+            }
+        } catch (error) {
+            console.error('清空关键词失败:', error);
+            this.updateStatus(`清空关键词失败: ${error.message}`, 'error');
+        }
+    }
+
     // ===== 话题管理 =====
     async loadTopics() {
         try {
@@ -1084,6 +1507,9 @@ class MaimaiPublisher {
         if (this.getTopicInfoBtn) {
             this.getTopicInfoBtn.disabled = false;
         }
+        
+        // 更新关键词选择
+        this.updateKeywordSelection();
     }
 
     onTopicUrlInput() {
@@ -1132,6 +1558,9 @@ class MaimaiPublisher {
                 }
             }
         }
+        
+        // 更新关键词选择
+        this.updateKeywordSelection();
     }
 
     openTopicModal() {
@@ -1614,11 +2043,23 @@ class MaimaiPublisher {
             return;
         }
 
+        // 检查关键词要求
+        if (this.currentGroupHasKeywords && !this.selectedKeyword) {
+            this.updateStatus('当前话题分组需要选择关键词才能定时发布', 'error');
+            return;
+        }
+
+        // 添加关键词到内容前面
+        let finalContent = content;
+        if (this.selectedKeyword) {
+            finalContent = `${this.selectedKeyword} ${content}`;
+        }
+
         this.setButtonLoading(this.schedulePublishBtn, true);
         this.updateStatus('正在添加到定时发布队列...', 'info');
 
         try {
-            let publishData = { title, content };
+            let publishData = { title, content: finalContent };
             
             if (selectedTopicId) {
                 const selectedTopic = this.topics.find(t => t.id === selectedTopicId);
@@ -1671,6 +2112,12 @@ class MaimaiPublisher {
             return;
         }
 
+        // 检查关键词要求
+        if (this.currentGroupHasKeywords && !this.selectedKeyword) {
+            this.updateStatus('当前话题分组需要选择关键词才能定时发布', 'error');
+            return;
+        }
+
         this.setButtonLoading(this.schedulePublishBtn, true);
         this.updateStatus(`开始添加 ${validPosts.length} 篇文章到定时发布队列...`, 'info');
 
@@ -1696,9 +2143,15 @@ class MaimaiPublisher {
         for (let i = 0; i < validPosts.length; i++) {
             const post = validPosts[i];
             try {
+                // 添加关键词到内容前面
+                let finalContent = post.content;
+                if (this.selectedKeyword) {
+                    finalContent = `${this.selectedKeyword} ${post.content}`;
+                }
+                
                 const postData = {
                     title: post.title,
-                    content: post.content,
+                    content: finalContent,
                     ...publishData
                 };
 
@@ -1918,11 +2371,14 @@ class MaimaiPublisher {
                         this.generatedContentTextarea.value.trim().length > 0;
         }
         
-        this.publishBtn.disabled = !hasContent;
+        // 检查关键词要求
+        const canPublish = hasContent && (!this.currentGroupHasKeywords || this.selectedKeyword);
+        
+        this.publishBtn.disabled = !canPublish;
         
         // 同时更新定时发布按钮
         if (this.schedulePublishBtn) {
-            this.schedulePublishBtn.disabled = !hasContent;
+            this.schedulePublishBtn.disabled = !canPublish;
         }
         
         // 更新按钮文字

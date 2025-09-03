@@ -1824,3 +1824,117 @@ textarea {
     border-radius: var(--border-radius-sm);
     font-weight: 500;
 }
+
+/* === 关键词管理弹窗样式 === */
+.keyword-left-panel,
+.keyword-right-panel {
+    flex: 1;
+    min-width: 0;
+}
+
+.keyword-left-panel {
+    margin-right: 24px;
+    max-width: 400px;
+}
+
+.keyword-group-section,
+.keyword-add-section,
+.keyword-batch-section,
+.keyword-list-section {
+    background: var(--bg-surface-secondary);
+    border-radius: var(--border-radius);
+    padding: 20px;
+    margin-bottom: 16px;
+    border: 1px solid var(--border-color);
+}
+
+.keyword-group-section h4,
+.keyword-add-section h4,
+.keyword-batch-section h4,
+.keyword-list-section h4 {
+    margin: 0 0 16px 0;
+    color: var(--text-primary);
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.group-info {
+    margin-top: 12px;
+    padding: 12px;
+    background: var(--bg-surface);
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--border-color);
+}
+
+.group-info p {
+    margin: 4px 0;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.group-info span {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.keywords-list-container {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    background: var(--bg-surface);
+}
+
+.keyword-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+    transition: background-color 0.2s ease;
+}
+
+.keyword-item:last-child {
+    border-bottom: none;
+}
+
+.keyword-item:hover {
+    background: var(--gray-50);
+}
+
+.keyword-text {
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+    background: var(--primary-50);
+    color: var(--primary-700);
+    padding: 4px 8px;
+    border-radius: var(--border-radius-sm);
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.no-group-selected,
+.no-keywords {
+    text-align: center;
+    padding: 24px;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+/* 批量输入框样式 */
+#batch-keywords-input {
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    resize: vertical;
+}
+
+/* 关键词输入框提示 */
+#new-keyword-input::placeholder {
+    color: var(--text-muted);
+    opacity: 1;
+}
+
+#batch-keywords-input::placeholder {
+    color: var(--text-muted);
+    opacity: 1;
+}
