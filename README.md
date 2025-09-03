@@ -18,7 +18,43 @@
 - **AI模型**: Gemini 2.5 Pro/Flash
 - **API集成**: 脉脉开放平台
 
-## 📦 安装部署
+## 📦 快速部署
+
+### Docker部署（推荐）
+
+```bash
+# 1. 克隆项目
+git clone <repository-url>
+cd maimaichat
+
+# 2. 一键部署
+sudo ./deploy.sh
+
+# 3. 设置访问令牌（首次部署时）
+nano .env  # 编辑MAIMAI_ACCESS_TOKEN
+```
+
+部署完成后访问：`http://localhost:5000`
+
+### Docker管理命令
+
+```bash
+# 查看服务状态
+docker ps | grep maimaichat-app
+
+# 查看日志
+docker logs -f maimaichat-app
+
+# 重启服务
+docker restart maimaichat-app
+
+# 停止服务
+docker stop maimaichat-app
+```
+
+### 传统部署
+
+如果不使用Docker，可以按照以下步骤手动部署：
 
 ### 1. 环境要求
 
