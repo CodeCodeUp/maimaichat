@@ -625,16 +625,43 @@ if __name__ == '__main__':
     logger.info(f"服务地址：http://localhost:{Config.PORT}")
     
     # 启动定时发布处理器
-    scheduled_publisher.start()
-    logger.info("定时发布后台任务已启动")
+    try:
+        scheduled_publisher.start()
+        logger.info("定时发布后台任务已启动")
+    except Exception as e:
+        logger.error(f"启动定时发布处理器失败: {e}")
+        exit(1)
     
     try:
+        # 注册信号处理器以支持优雅关闭
+        import signal
+        
+        def signal_handler(signum, frame):
+            logger.info(f"收到退出信号 {signum}，正在优雅关闭...")
+            scheduled_publisher.stop()
+            exit(0)
+        
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
+        
+        # 启动Flask应用
         app.run(
             host=Config.HOST,
             port=Config.PORT,
-            debug=Config.DEBUG
+            debug=Config.DEBUG,
+            threaded=True,  # 显式启用多线程支持
+            use_reloader=False  # 禁用自动重载以避免线程冲突
         )
+    except KeyboardInterrupt:
+        logger.info("收到键盘中断信号...")
+    except Exception as e:
+        logger.error(f"Flask应用运行异常: {e}")
     finally:
-        # 程序退出时停止定时任务处理器
-        scheduled_publisher.stop()
+        # 确保定时任务处理器被正确停止
+        logger.info("正在清理资源...")
+        try:
+            scheduled_publisher.stop(timeout=15)
+        except Exception as e:
+            logger.error(f"停止定时发布处理器时出错: {e}")
         logger.info("定时发布后台任务已停止")
+        logger.info("=== 脉脉自动发布系统已退出 ===")

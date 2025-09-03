@@ -16,6 +16,7 @@ class ScheduledPublisher:
         self.running = False
         self.thread = None
         self.check_interval = 30  # 每30秒检查一次
+        self._shutdown_event = threading.Event()  # 优雅关闭事件
     
     def start(self):
         """启动定时任务处理器"""
@@ -23,20 +24,33 @@ class ScheduledPublisher:
             logger.warning("定时发布处理器已在运行中")
             return
         
+        self._shutdown_event.clear()
         self.running = True
-        self.thread = threading.Thread(target=self._run_scheduler, daemon=True)
+        # 改为非daemon线程，确保能够优雅关闭
+        self.thread = threading.Thread(target=self._run_scheduler, daemon=False)
         self.thread.start()
         logger.info("定时发布处理器已启动")
     
-    def stop(self):
-        """停止定时任务处理器"""
+    def stop(self, timeout=10):
+        """停止定时任务处理器，增强超时控制"""
+        if not self.running:
+            return
+            
+        logger.info("正在停止定时发布处理器...")
         self.running = False
-        if self.thread:
-            self.thread.join(timeout=5)
-        logger.info("定时发布处理器已停止")
+        self._shutdown_event.set()
+        
+        if self.thread and self.thread.is_alive():
+            self.thread.join(timeout=timeout)
+            if self.thread.is_alive():
+                logger.warning(f"定时发布处理器线程未能在{timeout}秒内正常退出")
+            else:
+                logger.info("定时发布处理器已正常停止")
+        else:
+            logger.info("定时发布处理器已停止")
     
     def _run_scheduler(self):
-        """定时任务主循环"""
+        """定时任务主循环 - 使用事件驱动优雅退出"""
         logger.info("定时发布处理器开始运行")
         
         while self.running:
@@ -45,11 +59,10 @@ class ScheduledPublisher:
             except Exception as e:
                 logger.error(f"定时发布处理异常: {e}")
             
-            # 等待下次检查
-            for _ in range(self.check_interval):
-                if not self.running:
-                    break
-                time.sleep(1)
+            # 使用事件等待替代简单的sleep，支持快速响应关闭信号
+            if self._shutdown_event.wait(timeout=self.check_interval):
+                logger.info("收到关闭信号，准备退出...")
+                break
         
         logger.info("定时发布处理器已退出")
     
