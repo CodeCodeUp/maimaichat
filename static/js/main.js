@@ -14,6 +14,8 @@ class MaimaiPublisher {
         this.maxJsonRetry = 10;
         this.currentPosts = [];  // 新增：当前解析的多篇内容
         this.isMultiplePosts = false;  // 新增：是否为多篇模式
+        this.aiConfigs = {};  // 新增：AI配置列表
+        this.currentAiConfigId = '';  // 新增：当前AI配置ID
         this.initializeElements();
         this.bindEvents();
         this.bootstrap();
@@ -89,6 +91,19 @@ class MaimaiPublisher {
         // 其他
         this.statusDisplay = document.getElementById('status-display');
         this.getTopicInfoBtn = document.getElementById('get-topic-info');
+        
+        // AI配置管理
+        this.currentAiName = document.getElementById('current-ai-name');
+        this.aiConfigSelect = document.getElementById('ai-config-select');
+        this.testAiConfigBtn = document.getElementById('test-ai-config');
+        this.manageAiConfigsBtn = document.getElementById('manage-ai-configs');
+        this.aiConfigModal = document.getElementById('ai-config-modal');
+        this.closeAiConfigModalBtn = document.getElementById('close-ai-config-modal');
+        this.closeAiConfigModalFooterBtn = document.getElementById('close-ai-config-modal-footer');
+        this.modalCurrentAiName = document.getElementById('modal-current-ai-name');
+        this.aiConfigsContainer = document.getElementById('ai-configs-container');
+        this.refreshAiConfigsBtn = document.getElementById('refresh-ai-configs');
+        this.testAllConfigsBtn = document.getElementById('test-all-configs');
     }
 
     bindEvents() {
@@ -161,10 +176,25 @@ class MaimaiPublisher {
         this.addPromptItemBtn?.addEventListener('click', () => this.addPromptItem());
         this.saveAllPromptsBtn?.addEventListener('click', () => this.saveAllPrompts());
         
+        // AI配置管理
+        this.aiConfigSelect?.addEventListener('change', (e) => this.switchAiConfig(e.target.value));
+        this.testAiConfigBtn?.addEventListener('click', () => this.testCurrentAiConfig());
+        this.manageAiConfigsBtn?.addEventListener('click', () => this.openAiConfigModal());
+        this.closeAiConfigModalBtn?.addEventListener('click', () => this.closeAiConfigModal());
+        this.closeAiConfigModalFooterBtn?.addEventListener('click', () => this.closeAiConfigModal());
+        this.refreshAiConfigsBtn?.addEventListener('click', () => this.loadAiConfigs());
+        this.testAllConfigsBtn?.addEventListener('click', () => this.testAllAiConfigs());
+        
         // 点击弹窗外部关闭
         this.promptModal?.addEventListener('click', (e) => {
             if (e.target === this.promptModal) {
                 this.closePromptModal();
+            }
+        });
+        
+        this.aiConfigModal?.addEventListener('click', (e) => {
+            if (e.target === this.aiConfigModal) {
+                this.closeAiConfigModal();
             }
         });
 
@@ -178,6 +208,7 @@ class MaimaiPublisher {
         await this.loadGroups();
         await this.loadTopics();
         await this.loadScheduledPostsCount();
+        await this.loadAiConfigs();  // 新增：加载AI配置
         this.addSystemMessage(this.currentPrompt || '你是一个资深新媒体编辑，擅长将话题梳理成适合脉脉的内容。');
         this.updatePublishButton();
         this.updateStatus('系统初始化完成，已配置移动端API发布模式', 'success');
@@ -1933,6 +1964,166 @@ class MaimaiPublisher {
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#039;');
+    }
+
+    // ===== AI配置管理 =====
+
+    async loadAiConfigs() {
+        try {
+            const response = await fetch('/api/ai-configs');
+            const result = await response.json();
+            
+            if (result.success) {
+                this.aiConfigs = result.data;
+                this.currentAiConfigId = result.current_config_id;
+                this.updateAiConfigUI();
+                this.updateStatus('AI配置加载成功', 'success');
+            } else {
+                throw new Error(result.error || '获取AI配置失败');
+            }
+        } catch (error) {
+            console.error('加载AI配置失败:', error);
+            this.updateStatus('加载AI配置失败: ' + error.message, 'error');
+        }
+    }
+
+    updateAiConfigUI() {
+        // 更新右侧栏的当前AI配置显示
+        if (this.currentAiName) {
+            const currentConfig = this.aiConfigs[this.currentAiConfigId];
+            this.currentAiName.textContent = currentConfig ? currentConfig.name : '未知';
+        }
+
+        // 更新右侧栏的AI配置选择下拉框
+        if (this.aiConfigSelect) {
+            this.aiConfigSelect.innerHTML = '';
+            Object.entries(this.aiConfigs).forEach(([configId, config]) => {
+                const option = document.createElement('option');
+                option.value = configId;
+                option.textContent = config.name;
+                option.selected = configId === this.currentAiConfigId;
+                this.aiConfigSelect.appendChild(option);
+            });
+        }
+
+        // 更新弹窗中的当前配置显示
+        if (this.modalCurrentAiName) {
+            const currentConfig = this.aiConfigs[this.currentAiConfigId];
+            this.modalCurrentAiName.textContent = currentConfig ? currentConfig.name : '未知';
+        }
+
+        // 更新弹窗中的配置列表
+        this.renderAiConfigsList();
+    }
+
+    renderAiConfigsList() {
+        if (!this.aiConfigsContainer) return;
+
+        this.aiConfigsContainer.innerHTML = '';
+        
+        Object.entries(this.aiConfigs).forEach(([configId, config]) => {
+            const configItem = document.createElement('div');
+            configItem.className = `ai-config-item ${configId === this.currentAiConfigId ? 'current' : ''}`;
+            
+            configItem.innerHTML = `
+                <div class="ai-config-info">
+                    <div class="ai-config-name">${this.escapeHtml(config.name)}</div>
+                    <div class="ai-config-description">${this.escapeHtml(config.description)}</div>
+                    <div class="ai-config-details">
+                        ${this.escapeHtml(config.base_url)} | ${this.escapeHtml(config.main_model)}
+                    </div>
+                    <div class="ai-config-status-badge ${config.enabled ? 'status-enabled' : 'status-disabled'}">
+                        ${config.enabled ? '启用' : '禁用'}
+                    </div>
+                    ${configId === this.currentAiConfigId ? '<div class="ai-config-status-badge status-current">当前</div>' : ''}
+                </div>
+                <div class="ai-config-item-actions">
+                    <button class="btn-primary small" onclick="app.testAiConfigConnection('${configId}')">测试</button>
+                    ${configId !== this.currentAiConfigId && config.enabled ? 
+                        `<button class="btn-success small" onclick="app.switchAiConfig('${configId}')">切换</button>` : 
+                        ''}
+                </div>
+            `;
+            
+            this.aiConfigsContainer.appendChild(configItem);
+        });
+    }
+
+    async switchAiConfig(configId) {
+        if (!configId || configId === this.currentAiConfigId) return;
+
+        try {
+            const response = await fetch('/api/ai-configs/current', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ config_id: configId })
+            });
+
+            const result = await response.json();
+            
+            if (result.success) {
+                this.currentAiConfigId = configId;
+                this.updateAiConfigUI();
+                this.updateStatus(result.message, 'success');
+            } else {
+                throw new Error(result.error || '切换AI配置失败');
+            }
+        } catch (error) {
+            console.error('切换AI配置失败:', error);
+            this.updateStatus('切换AI配置失败: ' + error.message, 'error');
+        }
+    }
+
+    async testCurrentAiConfig() {
+        await this.testAiConfigConnection(this.currentAiConfigId);
+    }
+
+    async testAiConfigConnection(configId) {
+        try {
+            this.updateStatus('正在测试AI配置连接...', 'info');
+            
+            const response = await fetch(`/api/ai-configs/${configId}/test`, {
+                method: 'POST'
+            });
+
+            const result = await response.json();
+            
+            if (result.success) {
+                this.updateStatus(`AI配置 "${this.aiConfigs[configId].name}" 连接测试成功`, 'success');
+            } else {
+                throw new Error(result.error || '连接测试失败');
+            }
+        } catch (error) {
+            console.error('测试AI配置连接失败:', error);
+            this.updateStatus(`AI配置连接测试失败: ${error.message}`, 'error');
+        }
+    }
+
+    async testAllAiConfigs() {
+        this.updateStatus('正在测试所有AI配置...', 'info');
+        
+        for (const [configId, config] of Object.entries(this.aiConfigs)) {
+            if (config.enabled) {
+                await this.testAiConfigConnection(configId);
+                // 添加短暂延迟避免请求过于频繁
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
+        
+        this.updateStatus('所有AI配置测试完成', 'success');
+    }
+
+    openAiConfigModal() {
+        if (this.aiConfigModal) {
+            this.aiConfigModal.style.display = 'block';
+            this.renderAiConfigsList();
+        }
+    }
+
+    closeAiConfigModal() {
+        if (this.aiConfigModal) {
+            this.aiConfigModal.style.display = 'none';
+        }
     }
 }
 

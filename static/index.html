@@ -75,6 +75,19 @@
 
             <aside class="rightbar">
                 <div class="section">
+                    <div class="section-title">AI配置管理</div>
+                    <div class="ai-config-status">
+                        <p>当前使用：<span id="current-ai-name">加载中...</span></p>
+                        <select id="ai-config-select" class="small">
+                            <option value="">加载配置中...</option>
+                        </select>
+                    </div>
+                    <div class="row">
+                        <button id="test-ai-config" class="btn-primary small">测试连接</button>
+                        <button id="manage-ai-configs" class="btn-secondary small">配置管理</button>
+                    </div>
+                </div>
+                <div class="section">
                     <div class="section-title">提示词管理</div>
                     <div class="row">
                         <button id="manage-prompts" class="btn-primary grow">管理提示词</button>
@@ -100,6 +113,35 @@
                     <div id="status-display" class="status-display"><p>等待操作...</p></div>
                 </div>
             </aside>
+        </div>
+    </div>
+
+    <!-- AI配置管理弹窗 -->
+    <div id="ai-config-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>AI配置管理</h3>
+                <button class="modal-close" id="close-ai-config-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="ai-config-section">
+                    <div class="current-config-info">
+                        <p>当前使用配置：<span id="modal-current-ai-name" class="config-name">未知</span></p>
+                    </div>
+                    
+                    <div id="ai-configs-container" class="ai-configs-container">
+                        <!-- AI配置列表将动态生成 -->
+                    </div>
+                    
+                    <div class="ai-config-actions">
+                        <button id="refresh-ai-configs" class="btn-primary">刷新配置</button>
+                        <button id="test-all-configs" class="btn-secondary">测试所有</button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="close-ai-config-modal-footer" class="btn-secondary">关闭</button>
+            </div>
         </div>
     </div>
 

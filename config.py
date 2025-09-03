@@ -12,19 +12,46 @@ class Config:
     HOST = '0.0.0.0'
     PORT = 5000
     
-    # AI API配置
-    # AI_CONFIG = {
-    #     "api_key": "sk-6vZIDOh3bs03jVZcv8PYMWnaSgzw8azvF0YynVJurreJThhs",
-    #     "base_url": "https://ai.lins.dev/v1",
-    #     "main_model": "gemini-2.5-pro-preview-06-05",
-    #     "assistant_model": "gemini-2.5-flash-search"
-    # }
-    AI_CONFIG = {
-        "api_key": "sk-RhixfnCsWWIK8N8tqXmuCItASYMRQhLG4Z1ZIYMmDfhcAPKq",
-        "base_url": "https://tbai.xin/v1",
-        "main_model": "gemini-2.5-pro-search",
-        "assistant_model": "gemini-2.5-flash-search"
+    # AI API配置 - 支持多配置
+    AI_CONFIGS = {
+        "tbai": {
+            "name": "TBAI",
+            "description": "TBAI",
+            "api_key": "sk-RhixfnCsWWIK8N8tqXmuCItASYMRQhLG4Z1ZIYMmDfhcAPKq",
+            "base_url": "https://tbai.xin/v1",
+            "main_model": "gemini-2.5-pro-search",
+            "assistant_model": "gemini-2.5-flash-search",
+            "enabled": True
+        },
+        "lins": {
+            "name": "Lins AI",
+            "description": "Lins AI",
+            "api_key": "sk-6vZIDOh3bs03jVZcv8PYMWnaSgzw8azvF0YynVJurreJThhs",
+            "base_url": "https://ai.lins.dev/v1",
+            "main_model": "gemini-2.5-pro-preview-06-05",
+            "assistant_model": "gemini-2.5-flash-search",
+            "enabled": True
+        }
     }
+    
+    # 默认使用的AI配置ID
+    DEFAULT_AI_CONFIG_ID = os.environ.get('DEFAULT_AI_CONFIG_ID', 'tbai')
+    
+    # 向后兼容的AI_CONFIG属性
+    @classmethod
+    def get_current_ai_config(cls):
+        """获取当前激活的AI配置"""
+        return cls.AI_CONFIGS.get(cls.DEFAULT_AI_CONFIG_ID, next(iter(cls.AI_CONFIGS.values())))
+    
+    # 为了保持向后兼容，直接设置AI_CONFIG为默认配置
+    AI_CONFIG = AI_CONFIGS['tbai']  # 使用默认配置
+    
+    @classmethod
+    def get_ai_config(cls, config_id: str = None):
+        """获取指定的AI配置"""
+        if not config_id:
+            config_id = cls.DEFAULT_AI_CONFIG_ID
+        return cls.AI_CONFIGS.get(config_id)
     
     # 脉脉API配置
     MAIMAI_CONFIG = {

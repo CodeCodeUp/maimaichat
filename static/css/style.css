@@ -1609,6 +1609,120 @@ textarea {
     box-shadow: 0 0 0 3px var(--primary-50);
 }
 
+/* AI配置管理样式 */
+.ai-config-status {
+    margin-bottom: 12px;
+}
+
+.ai-config-status p {
+    margin: 0 0 8px 0;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.ai-config-status select {
+    width: 100%;
+    margin-bottom: 8px;
+}
+
+.ai-configs-container {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    background: var(--bg-surface);
+}
+
+.ai-config-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--gray-100);
+    transition: background-color 0.2s ease;
+}
+
+.ai-config-item:hover {
+    background-color: var(--gray-50);
+}
+
+.ai-config-item.current {
+    background-color: var(--primary-50);
+    border-left: 4px solid var(--primary-500);
+}
+
+.ai-config-info {
+    flex: 1;
+}
+
+.ai-config-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.ai-config-description {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+
+.ai-config-details {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.ai-config-item-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.ai-config-status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.status-enabled {
+    background-color: var(--success-100);
+    color: var(--success-600);
+}
+
+.status-disabled {
+    background-color: var(--error-100);
+    color: var(--error-600);
+}
+
+.status-current {
+    background-color: var(--primary-100);
+    color: var(--primary-600);
+}
+
+.current-config-info {
+    background: var(--primary-50);
+    border: 1px solid var(--primary-200);
+    border-radius: var(--border-radius-sm);
+    padding: 12px;
+    margin-bottom: 16px;
+    text-align: center;
+}
+
+.current-config-info .config-name {
+    font-weight: 600;
+    color: var(--primary-700);
+}
+
+.ai-config-actions {
+    margin-top: 16px;
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
 /* 响应式调整 */
 @media (max-width: 768px) {
     .post-item-header {

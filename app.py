@@ -26,6 +26,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # 初始化AI生成器和脉脉API
+current_ai_config_id = Config.DEFAULT_AI_CONFIG_ID
 ai_generator = AIContentGenerator(Config.AI_CONFIG)
 maimai_api = MaimaiAPI(Config.MAIMAI_CONFIG)
 
@@ -514,6 +515,109 @@ def reschedule_post(post_id):
     except Exception as e:
         logger.error(f"重新安排发布时间异常：{str(e)}")
         return jsonify({'success': False, 'error': f'重新安排发布时间时发生错误：{str(e)}'}), 500
+
+
+# ===== AI配置管理API =====
+
+@app.route('/api/ai-configs', methods=['GET'])
+def get_ai_configs():
+    """获取所有AI配置"""
+    try:
+        configs = {}
+        for config_id, config_data in Config.AI_CONFIGS.items():
+            # 不返回敏感信息（API密钥）
+            configs[config_id] = {
+                "name": config_data["name"],
+                "description": config_data["description"],
+                "base_url": config_data["base_url"],
+                "main_model": config_data["main_model"],
+                "assistant_model": config_data.get("assistant_model", ""),
+                "enabled": config_data["enabled"],
+                "is_current": config_id == current_ai_config_id
+            }
+        
+        return jsonify({
+            'success': True, 
+            'data': configs,
+            'current_config_id': current_ai_config_id
+        })
+    except Exception as e:
+        logger.error(f"获取AI配置失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/ai-configs/<config_id>/test', methods=['POST'])
+def test_ai_config(config_id):
+    """测试指定AI配置连接"""
+    try:
+        config_data = Config.AI_CONFIGS.get(config_id)
+        if not config_data:
+            return jsonify({'success': False, 'error': '配置不存在'}), 404
+        
+        if not config_data['enabled']:
+            return jsonify({'success': False, 'error': '配置已被禁用'}), 400
+            
+        # 创建临时AI生成器测试连接
+        temp_generator = AIContentGenerator(config_data)
+        result = temp_generator.test_connection()
+        
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"测试AI配置连接失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/ai-configs/current', methods=['POST'])
+def switch_ai_config():
+    """切换当前使用的AI配置"""
+    try:
+        global current_ai_config_id, ai_generator
+        
+        data = request.get_json()
+        if not data or 'config_id' not in data:
+            return jsonify({'success': False, 'error': '缺少参数: config_id'}), 400
+        
+        config_id = data['config_id']
+        config_data = Config.AI_CONFIGS.get(config_id)
+        
+        if not config_data:
+            return jsonify({'success': False, 'error': '配置不存在'}), 404
+            
+        if not config_data['enabled']:
+            return jsonify({'success': False, 'error': '配置已被禁用'}), 400
+        
+        # 更新当前配置
+        current_ai_config_id = config_id
+        ai_generator = AIContentGenerator(config_data)
+        
+        logger.info(f"已切换AI配置到: {config_data['name']}")
+        
+        return jsonify({
+            'success': True, 
+            'message': f'已切换到 {config_data["name"]}',
+            'current_config_id': config_id
+        })
+    except Exception as e:
+        logger.error(f"切换AI配置失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/test-connection', methods=['POST'])
+def test_connection():
+    """测试当前AI和脉脉API连接状态"""
+    try:
+        ai_result = ai_generator.test_connection()
+        maimai_result = maimai_api.test_connection()
+        
+        return jsonify({
+            'success': True,
+            'ai_connection': ai_result,
+            'maimai_connection': maimai_result,
+            'current_ai_config': Config.AI_CONFIGS[current_ai_config_id]['name']
+        })
+    except Exception as e:
+        logger.error(f"测试连接异常：{str(e)}")
+        return jsonify({'success': False, 'error': f'测试连接时发生错误：{str(e)}'}), 500
 
 
 if __name__ == '__main__':
