@@ -76,17 +76,17 @@ class MaimaiPublisher {
         this.scheduledPendingCount = document.getElementById('scheduled-pending-count');
         this.pendingCount = document.getElementById('pending-count');
 
-        // 提示词管理
-        this.promptSelect = document.getElementById('prompt-select');
-        this.applyPromptBtn = document.getElementById('apply-prompt');
-        this.managePromptsBtn = document.getElementById('manage-prompts');
-        this.promptModal = document.getElementById('prompt-modal');
-        this.closePromptModalBtn = document.getElementById('close-prompt-modal');
-        this.closePromptModalFooterBtn = document.getElementById('close-prompt-modal-footer');
-        this.addPromptItemBtn = document.getElementById('add-prompt-item');
-        this.saveAllPromptsBtn = document.getElementById('save-all-prompts');
-        this.promptListContainer = document.getElementById('prompt-list-container');
-        this.currentPromptName = document.getElementById('current-prompt-name');
+    // 提示词管理
+    this.promptSelect = document.getElementById('prompt-select');
+    this.applyPromptBtn = document.getElementById('apply-prompt');
+    this.managePromptsBtn = document.getElementById('manage-prompts');
+    this.promptModal = document.getElementById('prompt-modal');
+    this.closePromptModalBtn = document.getElementById('close-prompt-modal');
+    this.closePromptModalFooterBtn = document.getElementById('close-prompt-modal-footer');
+    this.addPromptItemBtn = document.getElementById('add-prompt-item');
+    this.saveAllPromptsBtn = document.getElementById('save-all-prompts');
+    this.promptListContainer = document.getElementById('prompt-list-container');
+    this.currentPromptName = document.getElementById('current-prompt-name');
 
         // 其他
         this.statusDisplay = document.getElementById('status-display');
@@ -234,42 +234,56 @@ class MaimaiPublisher {
     // ===== 提示词管理 =====
     async loadPrompts() {
         try {
-            const saved = localStorage.getItem('maimai_prompts');
-            if (saved) {
-                this.prompts = JSON.parse(saved);
-            } else {
-                // 默认提示词
-                this.prompts = {
-                    '默认提示词': '你是一个资深新媒体编辑，擅长将话题梳理成适合脉脉的内容。',
-                    '脉脉创作者': '你是一名脉脉创作者，你在创作之前必须根据话题上网搜索实时最新的内容，避免制作内容过时。\\n创作的内容要符合脉脉的特点，不要有明显的ai生成痕迹，要符合正常创作者水平。\\n\\n这是脉脉的要求：\\n⚠目前参与活动的内容，需遵循以下内容规范（不符合要求的帖子不算入奖励）\\n①内容为经历内容时需要与话题的内容方向一致且为自身经历，分享他人故事之后不计入奖励\\n②内容为观点、知识、感受内容时，多个主贴需具有讨论方向的差异性，模板类内容不计入奖励\\n③帖子内容需非提问形式，且字数超过30字\\n④禁止AI编纂、抄袭搬运、水帖、个人人设冲突行为'
-                };
-            }
+            const response = await fetch('/api/prompts');
+            const result = await response.json();
             
-            // 加载当前使用的提示词
-            const currentKey = localStorage.getItem('maimai_current_prompt_key');
-            if (currentKey && this.prompts[currentKey]) {
-                this.currentPrompt = this.prompts[currentKey];
-                this.currentPromptKey = currentKey;
-            } else {
+            if (result.success) {
+                this.prompts = result.data;
+                
+                // 默认使用第一个提示词
                 const firstKey = Object.keys(this.prompts)[0];
                 this.currentPrompt = this.prompts[firstKey] || '';
                 this.currentPromptKey = firstKey || '';
+                
+                this.updatePromptSelect();
+                this.updateCurrentPromptDisplay();
+                this.updateStatus('提示词加载完成', 'success');
+            } else {
+                throw new Error(result.error || '提示词加载失败');
             }
+        } catch (error) {
+            console.error('提示词加载失败:', error);
+            this.updateStatus(`提示词加载失败: ${error.message}`, 'error');
             
+            // 设置基本默认值避免系统崩溃
+            this.prompts = {'默认提示词': '你是一个资深新媒体编辑，擅长将话题梳理成适合脉脉的内容。'};
+            this.currentPrompt = this.prompts['默认提示词'];
+            this.currentPromptKey = '默认提示词';
             this.updatePromptSelect();
             this.updateCurrentPromptDisplay();
-            this.updateStatus('提示词加载完成', 'success');
-        } catch (error) {
-            this.updateStatus(`提示词加载异常: ${error.message}`, 'error');
         }
     }
 
-    savePrompts() {
+    async savePrompts() {
         try {
-            localStorage.setItem('maimai_prompts', JSON.stringify(this.prompts));
-            this.updateStatus('提示词保存成功', 'success');
+            const response = await fetch('/api/prompts', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ prompts: this.prompts })
+            });
+            
+            const result = await response.json();
+            if (result.success) {
+                this.updateStatus('提示词保存成功', 'success');
+                return true;
+            } else {
+                throw new Error(result.error || '保存失败');
+            }
         } catch (error) {
             this.updateStatus(`提示词保存失败: ${error.message}`, 'error');
+            return false;
         }
     }
 
@@ -294,7 +308,7 @@ class MaimaiPublisher {
         }
     }
 
-    applySelectedPrompt() {
+    async applySelectedPrompt() {
         const selectedKey = this.promptSelect?.value;
         if (!selectedKey) {
             this.updateStatus('请选择一个提示词模板', 'error');
@@ -309,7 +323,6 @@ class MaimaiPublisher {
         
         this.currentPrompt = content;
         this.currentPromptKey = selectedKey;
-        localStorage.setItem('maimai_current_prompt_key', selectedKey);
         this.updateCurrentPromptDisplay();
         this.clearChat();
         this.addSystemMessage(this.currentPrompt);
@@ -354,7 +367,6 @@ class MaimaiPublisher {
             <textarea class="prompt-value" rows="6" placeholder="输入提示词内容..." data-key="${keyId}">${this.escapeHtml(value)}</textarea>
         `;
         
-        // 绑定删除事件
         const deleteBtn = card.querySelector('.delete-prompt');
         deleteBtn?.addEventListener('click', () => {
             if (confirm('确定要删除这个提示词模板吗？')) {
@@ -370,7 +382,7 @@ class MaimaiPublisher {
         this.promptListContainer.appendChild(this.createPromptItemCard());
     }
 
-    saveAllPrompts() {
+    async saveAllPrompts() {
         if (!this.promptListContainer) return;
         
         const cards = this.promptListContainer.querySelectorAll('.prompt-item-card');
@@ -396,11 +408,13 @@ class MaimaiPublisher {
         }
         
         this.prompts = newPrompts;
-        this.savePrompts();
-        this.updatePromptSelect();
-        this.updateCurrentPromptDisplay();
-        this.closePromptModal();
-        this.updateStatus('提示词模板保存成功', 'success');
+        const success = await this.savePrompts();
+        if (success) {
+            this.updatePromptSelect();
+            this.updateCurrentPromptDisplay();
+            this.closePromptModal();
+            this.updateStatus('提示词模板保存成功', 'success');
+        }
     }
 
     // ===== 聊天功能 =====

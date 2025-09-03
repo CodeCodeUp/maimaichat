@@ -44,6 +44,11 @@ scheduled_posts_store = ScheduledPostsStore(SCHEDULED_POSTS_FILE)
 from modules.scheduler import ScheduledPublisher
 scheduled_publisher = ScheduledPublisher(scheduled_posts_store, maimai_api)
 
+# 初始化提示词存储
+from modules.simple_prompt_store import PromptStore
+PROMPT_FILE = os.path.join('data', 'prompts.json')
+prompt_store = PromptStore(PROMPT_FILE)
+
 
 @app.route('/')
 def index():
@@ -618,6 +623,42 @@ def test_connection():
     except Exception as e:
         logger.error(f"测试连接异常：{str(e)}")
         return jsonify({'success': False, 'error': f'测试连接时发生错误：{str(e)}'}), 500
+
+
+# ===== 提示词管理API =====
+
+@app.route('/api/prompts', methods=['GET'])
+def get_prompts():
+    """获取所有提示词"""
+    try:
+        prompts = prompt_store.load_prompts()
+        return jsonify({'success': True, 'data': prompts})
+    except Exception as e:
+        logger.error(f"获取提示词失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/prompts', methods=['POST'])
+def save_prompts():
+    """保存所有提示词"""
+    try:
+        data = request.get_json()
+        if not data or 'prompts' not in data:
+            return jsonify({'success': False, 'error': '缺少必需参数：prompts'}), 400
+        
+        prompts = data['prompts']
+        if not isinstance(prompts, dict):
+            return jsonify({'success': False, 'error': 'prompts必须是对象格式'}), 400
+        
+        success = prompt_store.save_prompts(prompts)
+        if success:
+            return jsonify({'success': True, 'message': '提示词保存成功'})
+        else:
+            return jsonify({'success': False, 'error': '保存失败'}), 500
+            
+    except Exception as e:
+        logger.error(f"保存提示词失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 if __name__ == '__main__':

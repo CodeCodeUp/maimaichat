@@ -131,7 +131,6 @@ dmypy.json
 # Project specific
 logs/
 *.log
-data/
 temp/
 tmp/
 modules/__pycache__

@@ -1739,3 +1739,88 @@ textarea {
         align-self: flex-end;
     }
 }
+
+/* 提示词只读模式样式 */
+.prompt-readonly-info {
+    background: var(--info-50);
+    border: 1px solid var(--info-200);
+    border-radius: var(--border-radius-sm);
+    padding: 12px;
+    margin-bottom: 16px;
+    color: var(--info-700);
+    text-align: center;
+    font-size: 0.875rem;
+}
+
+.prompt-item-card.readonly {
+    background: var(--gray-50);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 16px;
+    margin-bottom: 12px;
+}
+
+.prompt-item-card.readonly .prompt-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.prompt-item-card.readonly .prompt-item-header h4 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 1rem;
+}
+
+.prompt-category {
+    background: var(--primary-100);
+    color: var(--primary-700);
+    padding: 4px 8px;
+    border-radius: var(--border-radius-sm);
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.prompt-content {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    padding: 12px;
+    margin-bottom: 12px;
+    color: var(--text-primary);
+    line-height: 1.5;
+    white-space: pre-wrap;
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.prompt-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.system-tag {
+    background: var(--success-100);
+    color: var(--success-700);
+    padding: 2px 6px;
+    border-radius: var(--border-radius-sm);
+    font-weight: 500;
+}
+
+.custom-tag {
+    background: var(--warning-100);
+    color: var(--warning-700);
+    padding: 2px 6px;
+    border-radius: var(--border-radius-sm);
+    font-weight: 500;
+}
