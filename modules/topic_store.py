@@ -293,12 +293,16 @@ class TopicStore:
         del self.groups[group_name]
         
         if delete_topics:
+            # 删除分组和分组内的所有话题
+            deleted_count = 0
             for topic_id in topic_ids_in_group:
                 if topic_id in self.topics:
                     del self.topics[topic_id]
-            logger.info(f"已删除分组 '{group_name}' 及其包含的 {len(topic_ids_in_group)} 个话题")
+                    deleted_count += 1
+            logger.info(f"已删除分组 '{group_name}' 及其包含的 {deleted_count} 个话题")
         else:
-            logger.info(f"已删除分组 '{group_name}'，分组内话题变为未分组状态")
+            # 只删除分组，话题变为未分组状态
+            logger.info(f"已删除分组 '{group_name}'，分组内的 {len(topic_ids_in_group)} 个话题变为未分组状态")
 
         self.save()
         return True

@@ -1716,6 +1716,51 @@ textarea {
     color: var(--primary-700);
 }
 
+/* AI配置表单样式 */
+.ai-config-form-section {
+    margin-bottom: 24px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 16px;
+    background: var(--bg-surface);
+}
+
+.ai-config-form-section h4 {
+    margin: 0 0 12px 0;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.ai-config-form .row {
+    margin-bottom: 8px;
+}
+
+.ai-config-form input {
+    font-size: 13px;
+}
+
+/* AI配置测试结果样式 */
+.test-result {
+    margin-top: 6px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.test-success {
+    background-color: var(--success-100);
+    color: var(--success-700);
+    border: 1px solid var(--success-200);
+}
+
+.test-error {
+    background-color: var(--error-100);
+    color: var(--error-700);
+    border: 1px solid var(--error-200);
+}
+
 .ai-config-actions {
     margin-top: 16px;
     display: flex;

@@ -126,6 +126,16 @@ class MaimaiPublisher {
         this.aiConfigsContainer = document.getElementById('ai-configs-container');
         this.refreshAiConfigsBtn = document.getElementById('refresh-ai-configs');
         this.testAllConfigsBtn = document.getElementById('test-all-configs');
+        
+        // AI配置表单
+        this.newAiNameInput = document.getElementById('new-ai-name');
+        this.newAiDescriptionInput = document.getElementById('new-ai-description');
+        this.newAiBaseUrlInput = document.getElementById('new-ai-base-url');
+        this.newAiApiKeyInput = document.getElementById('new-ai-api-key');
+        this.newAiMainModelInput = document.getElementById('new-ai-main-model');
+        this.newAiAssistantModelInput = document.getElementById('new-ai-assistant-model');
+        this.addAiConfigBtn = document.getElementById('add-ai-config-btn');
+        this.clearAiFormBtn = document.getElementById('clear-ai-form-btn');
     }
 
     bindEvents() {
@@ -232,6 +242,8 @@ class MaimaiPublisher {
         this.closeAiConfigModalFooterBtn?.addEventListener('click', () => this.closeAiConfigModal());
         this.refreshAiConfigsBtn?.addEventListener('click', () => this.loadAiConfigs());
         this.testAllConfigsBtn?.addEventListener('click', () => this.testAllAiConfigs());
+        this.addAiConfigBtn?.addEventListener('click', () => this.addAiConfig());
+        this.clearAiFormBtn?.addEventListener('click', () => this.clearAiForm());
         
         // 点击弹窗外部关闭
         this.promptModal?.addEventListener('click', (e) => {
@@ -289,10 +301,20 @@ class MaimaiPublisher {
             if (result.success) {
                 this.prompts = result.data;
                 
-                // 默认使用第一个提示词
-                const firstKey = Object.keys(this.prompts)[0];
-                this.currentPrompt = this.prompts[firstKey] || '';
-                this.currentPromptKey = firstKey || '';
+                // 尝试从localStorage加载上次选择的提示词
+                const lastSelectedPrompt = localStorage.getItem('lastSelectedPrompt');
+                let selectedKey = null;
+                
+                if (lastSelectedPrompt && this.prompts[lastSelectedPrompt]) {
+                    // 使用上次选择的提示词
+                    selectedKey = lastSelectedPrompt;
+                } else {
+                    // 使用第一个提示词作为默认值
+                    selectedKey = Object.keys(this.prompts)[0];
+                }
+                
+                this.currentPrompt = this.prompts[selectedKey] || '';
+                this.currentPromptKey = selectedKey || '';
                 
                 this.updatePromptSelect();
                 this.updateCurrentPromptDisplay();
@@ -372,6 +394,10 @@ class MaimaiPublisher {
         
         this.currentPrompt = content;
         this.currentPromptKey = selectedKey;
+        
+        // 保存选择到localStorage
+        localStorage.setItem('lastSelectedPrompt', selectedKey);
+        
         this.updateCurrentPromptDisplay();
         this.clearChat();
         this.addSystemMessage(this.currentPrompt);
@@ -856,13 +882,13 @@ class MaimaiPublisher {
     
     // 单篇发布
     async publishSinglePost() {
-        const title = this.titleInput?.value.trim();
+        const title = this.titleInput?.value.trim() || '';  // 允许标题为空
         const content = this.generatedContentTextarea?.value.trim();
         const topicUrl = this.topicUrlInput?.value.trim();
         const selectedTopicId = this.selectedTopicId;
 
-        if (!title || !content) {
-            this.updateStatus('请确保标题和内容都已填写', 'error');
+        if (!content) {
+            this.updateStatus('请确保内容已填写', 'error');
             return;
         }
 
@@ -928,11 +954,11 @@ class MaimaiPublisher {
         }
 
         const validPosts = this.currentPosts.filter(post => 
-            post.title.trim() && post.content.trim()
+            post.content.trim()  // 只验证内容不为空
         );
 
         if (validPosts.length === 0) {
-            this.updateStatus('没有有效的文章内容（标题和内容不能为空）', 'error');
+            this.updateStatus('没有有效的文章内容（内容不能为空）', 'error');
             return;
         }
 
@@ -1997,8 +2023,22 @@ class MaimaiPublisher {
     }
 
     async deleteGroup(groupName) {
-        const deleteTopics = confirm(`确定要删除分组 "${groupName}" 吗？\n\n点击 "确定" 只删除分组（话题变为未分组）\n点击 "取消" 取消操作`);
-        if (!deleteTopics && !confirm('确定要删除分组及其包含的所有话题吗？')) return;
+        // 先检查分组下有多少话题
+        const groupTopics = this.topics.filter(topic => topic.group === groupName);
+        const topicCount = groupTopics.length;
+        
+        let confirmMessage = `确定要删除分组 "${groupName}" 吗？`;
+        if (topicCount > 0) {
+            confirmMessage += `\n\n该分组包含 ${topicCount} 个话题。\n\n选择操作：\n- 点击"确定"：删除分组，话题变为未分组状态\n- 点击"取消"：不删除`;
+        }
+        
+        if (!confirm(confirmMessage)) return;
+        
+        // 如果分组包含话题，询问是否要同时删除话题
+        let deleteTopics = false;
+        if (topicCount > 0) {
+            deleteTopics = confirm(`是否要同时删除分组内的所有 ${topicCount} 个话题？\n\n- 点击"确定"：删除分组和话题\n- 点击"取消"：只删除分组，话题变为未分组`);
+        }
 
         try {
             const response = await fetch(`/api/topics/groups/${encodeURIComponent(groupName)}?delete_topics=${deleteTopics}`, {
@@ -2011,7 +2051,12 @@ class MaimaiPublisher {
                 this.updateGroupSelects();
                 this.loadTopicsForModal();
                 this.loadTopics();
-                this.updateStatus(`分组 "${groupName}" 删除成功`, 'success');
+                
+                if (deleteTopics && topicCount > 0) {
+                    this.updateStatus(`分组 "${groupName}" 及其包含的 ${topicCount} 个话题删除成功`, 'success');
+                } else {
+                    this.updateStatus(`分组 "${groupName}" 删除成功${topicCount > 0 ? `，${topicCount} 个话题已变为未分组状态` : ''}`, 'success');
+                }
             } else {
                 this.updateStatus(`分组删除失败: ${result.error}`, 'error');
             }
@@ -2033,13 +2078,13 @@ class MaimaiPublisher {
     
     // 单篇定时发布
     async scheduleSinglePost() {
-        const title = this.titleInput?.value.trim();
+        const title = this.titleInput?.value.trim() || '';  // 允许标题为空
         const content = this.generatedContentTextarea?.value.trim();
         const topicUrl = this.topicUrlInput?.value.trim();
         const selectedTopicId = this.selectedTopicId;
 
-        if (!title || !content) {
-            this.updateStatus('请确保标题和内容都已填写', 'error');
+        if (!content) {
+            this.updateStatus('请确保内容已填写', 'error');
             return;
         }
 
@@ -2104,11 +2149,11 @@ class MaimaiPublisher {
         }
 
         const validPosts = this.currentPosts.filter(post => 
-            post.title.trim() && post.content.trim()
+            post.content.trim()  // 只验证内容不为空
         );
 
         if (validPosts.length === 0) {
-            this.updateStatus('没有有效的文章内容（标题和内容不能为空）', 'error');
+            this.updateStatus('没有有效的文章内容（内容不能为空）', 'error');
             return;
         }
 
@@ -2364,7 +2409,7 @@ class MaimaiPublisher {
         if (this.isMultiplePosts) {
             // 多篇模式：检查是否有有效的文章
             hasContent = this.currentPosts.length > 0 && 
-                        this.currentPosts.some(post => post.title.trim() && post.content.trim());
+                        this.currentPosts.some(post => post.content.trim());  // 只检查内容
         } else {
             // 单篇模式：检查文本框内容
             hasContent = this.generatedContentTextarea && 
@@ -2494,6 +2539,7 @@ class MaimaiPublisher {
         Object.entries(this.aiConfigs).forEach(([configId, config]) => {
             const configItem = document.createElement('div');
             configItem.className = `ai-config-item ${configId === this.currentAiConfigId ? 'current' : ''}`;
+            configItem.setAttribute('data-config-id', configId);  // 添加数据属性
             
             configItem.innerHTML = `
                 <div class="ai-config-info">
@@ -2512,6 +2558,7 @@ class MaimaiPublisher {
                     ${configId !== this.currentAiConfigId && config.enabled ? 
                         `<button class="btn-success small" onclick="app.switchAiConfig('${configId}')">切换</button>` : 
                         ''}
+                    <button class="btn-danger small" onclick="app.deleteAiConfig('${configId}')">删除</button>
                 </div>
             `;
             
@@ -2552,6 +2599,16 @@ class MaimaiPublisher {
         try {
             this.updateStatus('正在测试AI配置连接...', 'info');
             
+            // 更新界面显示测试状态
+            const configElement = this.findConfigElement(configId);
+            if (configElement) {
+                const testBtn = configElement.querySelector('button[onclick*="testAiConfigConnection"]');
+                if (testBtn) {
+                    testBtn.disabled = true;
+                    testBtn.textContent = '测试中...';
+                }
+            }
+            
             const response = await fetch(`/api/ai-configs/${configId}/test`, {
                 method: 'POST'
             });
@@ -2560,13 +2617,52 @@ class MaimaiPublisher {
             
             if (result.success) {
                 this.updateStatus(`AI配置 "${this.aiConfigs[configId].name}" 连接测试成功`, 'success');
+                this.updateConfigTestResult(configId, 'success', '连接正常');
             } else {
                 throw new Error(result.error || '连接测试失败');
             }
         } catch (error) {
             console.error('测试AI配置连接失败:', error);
             this.updateStatus(`AI配置连接测试失败: ${error.message}`, 'error');
+            this.updateConfigTestResult(configId, 'error', error.message);
+        } finally {
+            // 恢复按钮状态
+            const configElement = this.findConfigElement(configId);
+            if (configElement) {
+                const testBtn = configElement.querySelector('button[onclick*="testAiConfigConnection"]');
+                if (testBtn) {
+                    testBtn.disabled = false;
+                    testBtn.textContent = '测试';
+                }
+            }
         }
+    }
+
+    findConfigElement(configId) {
+        if (!this.aiConfigsContainer) return null;
+        return this.aiConfigsContainer.querySelector(`[data-config-id="${configId}"]`);
+    }
+
+    updateConfigTestResult(configId, status, message) {
+        const configElement = this.findConfigElement(configId);
+        if (!configElement) return;
+        
+        let resultElement = configElement.querySelector('.test-result');
+        if (!resultElement) {
+            resultElement = document.createElement('div');
+            resultElement.className = 'test-result';
+            configElement.querySelector('.ai-config-info').appendChild(resultElement);
+        }
+        
+        resultElement.className = `test-result test-${status}`;
+        resultElement.textContent = `测试结果: ${message}`;
+        
+        // 3秒后自动清除结果
+        setTimeout(() => {
+            if (resultElement.parentNode) {
+                resultElement.remove();
+            }
+        }, 3000);
     }
 
     async testAllAiConfigs() {
@@ -2583,6 +2679,84 @@ class MaimaiPublisher {
         this.updateStatus('所有AI配置测试完成', 'success');
     }
 
+    async addAiConfig() {
+        try {
+            const configData = {
+                name: this.newAiNameInput?.value.trim(),
+                description: this.newAiDescriptionInput?.value.trim(),
+                base_url: this.newAiBaseUrlInput?.value.trim(),
+                api_key: this.newAiApiKeyInput?.value.trim(),
+                main_model: this.newAiMainModelInput?.value.trim(),
+                assistant_model: this.newAiAssistantModelInput?.value.trim(),
+                enabled: true
+            };
+            
+            // 验证必填字段
+            if (!configData.name || !configData.base_url || !configData.api_key || !configData.main_model) {
+                this.updateStatus('请填写所有必填字段（名称、API地址、API密钥、主模型）', 'error');
+                return;
+            }
+            
+            this.setButtonLoading(this.addAiConfigBtn, true);
+            
+            const response = await fetch('/api/ai-configs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(configData)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.updateStatus(result.message, 'success');
+                this.clearAiForm();
+                await this.loadAiConfigs();
+                this.renderAiConfigsList();
+            } else {
+                this.updateStatus(`添加AI配置失败: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            console.error('添加AI配置异常:', error);
+            this.updateStatus(`添加AI配置异常: ${error.message}`, 'error');
+        } finally {
+            this.setButtonLoading(this.addAiConfigBtn, false);
+        }
+    }
+    
+    clearAiForm() {
+        if (this.newAiNameInput) this.newAiNameInput.value = '';
+        if (this.newAiDescriptionInput) this.newAiDescriptionInput.value = '';
+        if (this.newAiBaseUrlInput) this.newAiBaseUrlInput.value = '';
+        if (this.newAiApiKeyInput) this.newAiApiKeyInput.value = '';
+        if (this.newAiMainModelInput) this.newAiMainModelInput.value = '';
+        if (this.newAiAssistantModelInput) this.newAiAssistantModelInput.value = '';
+    }
+    
+    async deleteAiConfig(configId) {
+        if (!confirm('确定要删除这个AI配置吗？此操作不可撤销。')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/ai-configs/${configId}`, {
+                method: 'DELETE'
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.updateStatus(result.message, 'success');
+                await this.loadAiConfigs();
+                this.renderAiConfigsList();
+            } else {
+                this.updateStatus(`删除AI配置失败: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            console.error('删除AI配置异常:', error);
+            this.updateStatus(`删除AI配置异常: ${error.message}`, 'error');
+        }
+    }
+    
     openAiConfigModal() {
         if (this.aiConfigModal) {
             this.aiConfigModal.style.display = 'block';

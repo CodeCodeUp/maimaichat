@@ -1,0 +1,23 @@
+{
+  "configs": {
+    "tbai": {
+      "name": "TBAI",
+      "description": "TBAI AI服务",
+      "api_key": "sk-RhixfnCsWWIK8N8tqXmuCItASYMRQhLG4Z1ZIYMmDfhcAPKq",
+      "base_url": "https://tbai.xin/v1",
+      "main_model": "gemini-2.5-pro-search",
+      "assistant_model": "gemini-2.5-flash-search",
+      "enabled": true
+    },
+    "lins": {
+      "name": "Lins AI",
+      "description": "Lins AI服务",
+      "api_key": "sk-6vZIDOh3bs03jVZcv8PYMWnaSgzw8azvF0YynVJurreJThhs",
+      "base_url": "https://ai.lins.dev/v1",
+      "main_model": "gemini-2.5-pro-preview-06-05",
+      "assistant_model": "gemini-2.5-flash-search",
+      "enabled": true
+    }
+  },
+  "current_config_id": "tbai"
+}

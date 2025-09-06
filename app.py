@@ -25,9 +25,15 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+# 初始化AI配置存储
+from modules.ai_config_store import AIConfigStore
+AI_CONFIG_FILE = os.path.join('data', 'ai_configs.json')
+ai_config_store = AIConfigStore(AI_CONFIG_FILE)
+
 # 初始化AI生成器和脉脉API
-current_ai_config_id = Config.DEFAULT_AI_CONFIG_ID
-ai_generator = AIContentGenerator(Config.AI_CONFIG)
+current_ai_config_id = ai_config_store.get_current_config_id()
+current_config = ai_config_store.get_current_config()
+ai_generator = AIContentGenerator(current_config)
 maimai_api = MaimaiAPI(Config.MAIMAI_CONFIG)
 
 # 初始化话题存储
@@ -94,13 +100,13 @@ def publish_content():
         data = request.get_json()
 
         # 验证必需参数
-        if not data or 'title' not in data or 'content' not in data:
+        if not data or 'content' not in data:
             return jsonify({
                 'success': False,
-                'error': '缺少必需参数：title 或 content'
+                'error': '缺少必需参数：content'
             }), 400
 
-        title = data['title']
+        title = data.get('title', '')  # 允许标题为空
         content = data['content']
         topic_url = data.get('topic_url', '')
         topic_id = data.get('topic_id', '')
@@ -373,9 +379,13 @@ def delete_topic_group(name):
         if not topic_store.delete_group(name, delete_topics):
             return jsonify({'success': False, 'error': f"分组 '{name}' 不存在"}), 404
         
-        return jsonify({'success': True, 'message': f"分组 '{name}' 删除成功"})
+        if delete_topics:
+            return jsonify({'success': True, 'message': f"分组 '{name}' 及其包含的话题删除成功"})
+        else:
+            return jsonify({'success': True, 'message': f"分组 '{name}' 删除成功，话题已变为未分组状态"})
     except Exception as e:
         logger.error(f"删除分组失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # ===== 定时发布API =====
 
@@ -386,13 +396,13 @@ def schedule_publish():
         data = request.get_json()
         
         # 验证必需参数
-        if not data or 'title' not in data or 'content' not in data:
+        if not data or 'content' not in data:
             return jsonify({
                 'success': False,
-                'error': '缺少必需参数：title 或 content'
+                'error': '缺少必需参数：content'
             }), 400
 
-        title = data['title']
+        title = data.get('title', '')  # 允许标题为空
         content = data['content']
         topic_url = data.get('topic_url', '')
         topic_id = data.get('topic_id', '')
@@ -525,26 +535,83 @@ def reschedule_post(post_id):
 def get_ai_configs():
     """获取所有AI配置"""
     try:
-        configs = {}
-        for config_id, config_data in Config.AI_CONFIGS.items():
-            # 不返回敏感信息（API密钥）
-            configs[config_id] = {
-                "name": config_data["name"],
-                "description": config_data["description"],
-                "base_url": config_data["base_url"],
-                "main_model": config_data["main_model"],
-                "assistant_model": config_data.get("assistant_model", ""),
-                "enabled": config_data["enabled"],
-                "is_current": config_id == current_ai_config_id
-            }
-        
+        configs = ai_config_store.get_all_configs()
         return jsonify({
             'success': True, 
             'data': configs,
-            'current_config_id': current_ai_config_id
+            'current_config_id': ai_config_store.get_current_config_id()
         })
     except Exception as e:
         logger.error(f"获取AI配置失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/ai-configs', methods=['POST'])
+def create_ai_config():
+    """创建新的AI配置"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': '缺少请求数据'}), 400
+        
+        config_id = ai_config_store.add_config(data)
+        config = ai_config_store.get_all_configs()[config_id]
+        
+        return jsonify({
+            'success': True, 
+            'data': config,
+            'config_id': config_id,
+            'message': f'AI配置 "{data["name"]}" 创建成功'
+        })
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except Exception as e:
+        logger.error(f"创建AI配置失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/ai-configs/<config_id>', methods=['PUT'])
+def update_ai_config(config_id):
+    """更新AI配置"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': '缺少请求数据'}), 400
+        
+        success = ai_config_store.update_config(config_id, data)
+        if not success:
+            return jsonify({'success': False, 'error': '配置不存在'}), 404
+        
+        config = ai_config_store.get_all_configs()[config_id]
+        return jsonify({
+            'success': True, 
+            'data': config,
+            'message': 'AI配置更新成功'
+        })
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except Exception as e:
+        logger.error(f"更新AI配置失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/ai-configs/<config_id>', methods=['DELETE'])
+def delete_ai_config(config_id):
+    """删除AI配置"""
+    try:
+        success = ai_config_store.delete_config(config_id)
+        if not success:
+            return jsonify({'success': False, 'error': '配置不存在'}), 404
+        
+        return jsonify({
+            'success': True, 
+            'message': 'AI配置删除成功',
+            'current_config_id': ai_config_store.get_current_config_id()
+        })
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except Exception as e:
+        logger.error(f"删除AI配置失败: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -552,7 +619,7 @@ def get_ai_configs():
 def test_ai_config(config_id):
     """测试指定AI配置连接"""
     try:
-        config_data = Config.AI_CONFIGS.get(config_id)
+        config_data = ai_config_store.get_config(config_id)
         if not config_data:
             return jsonify({'success': False, 'error': '配置不存在'}), 404
         
@@ -580,25 +647,25 @@ def switch_ai_config():
             return jsonify({'success': False, 'error': '缺少参数: config_id'}), 400
         
         config_id = data['config_id']
-        config_data = Config.AI_CONFIGS.get(config_id)
+        success = ai_config_store.set_current_config(config_id)
         
-        if not config_data:
+        if not success:
             return jsonify({'success': False, 'error': '配置不存在'}), 404
-            
-        if not config_data['enabled']:
-            return jsonify({'success': False, 'error': '配置已被禁用'}), 400
         
-        # 更新当前配置
+        # 更新全局变量
         current_ai_config_id = config_id
-        ai_generator = AIContentGenerator(config_data)
+        current_config = ai_config_store.get_current_config()
+        ai_generator = AIContentGenerator(current_config)
         
-        logger.info(f"已切换AI配置到: {config_data['name']}")
+        logger.info(f"已切换AI配置到: {current_config['name']}")
         
         return jsonify({
             'success': True, 
-            'message': f'已切换到 {config_data["name"]}',
+            'message': f'已切换到 {current_config["name"]}',
             'current_config_id': config_id
         })
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
     except Exception as e:
         logger.error(f"切换AI配置失败: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -610,12 +677,13 @@ def test_connection():
     try:
         ai_result = ai_generator.test_connection()
         maimai_result = maimai_api.test_connection()
+        current_config = ai_config_store.get_current_config()
         
         return jsonify({
             'success': True,
             'ai_connection': ai_result,
             'maimai_connection': maimai_result,
-            'current_ai_config': Config.AI_CONFIGS[current_ai_config_id]['name']
+            'current_ai_config': current_config['name'] if current_config else 'Unknown'
         })
     except Exception as e:
         logger.error(f"测试连接异常：{str(e)}")

@@ -139,6 +139,31 @@
                         <p>当前使用配置：<span id="modal-current-ai-name" class="config-name">未知</span></p>
                     </div>
                     
+                    <!-- 新增配置区域 -->
+                    <div class="ai-config-form-section">
+                        <h4>添加新配置</h4>
+                        <div class="ai-config-form">
+                            <div class="row">
+                                <input type="text" id="new-ai-name" placeholder="配置名称" class="grow">
+                                <input type="text" id="new-ai-description" placeholder="描述（可选）" class="grow">
+                            </div>
+                            <div class="row">
+                                <input type="url" id="new-ai-base-url" placeholder="API地址 (如 https://api.openai.com/v1)" class="grow">
+                            </div>
+                            <div class="row">
+                                <input type="text" id="new-ai-api-key" placeholder="API密钥" class="grow">
+                            </div>
+                            <div class="row">
+                                <input type="text" id="new-ai-main-model" placeholder="主模型名称" class="grow">
+                                <input type="text" id="new-ai-assistant-model" placeholder="助手模型（可选）" class="grow">
+                            </div>
+                            <div class="row">
+                                <button id="add-ai-config-btn" class="btn-success small">添加配置</button>
+                                <button id="clear-ai-form-btn" class="btn-secondary small">清空表单</button>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div id="ai-configs-container" class="ai-configs-container">
                         <!-- AI配置列表将动态生成 -->
                     </div>
