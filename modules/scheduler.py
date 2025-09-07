@@ -2,7 +2,7 @@ import threading
 import time
 import logging
 from datetime import datetime
-from modules.scheduled_posts import ScheduledPostsStore
+from modules.scheduled_posts_db import ScheduledPostsStoreDB
 from modules.maimai_api import MaimaiAPI
 
 logger = logging.getLogger(__name__)
@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 class ScheduledPublisher:
     """定时发布任务处理器"""
     
-    def __init__(self, scheduled_posts_store: ScheduledPostsStore, maimai_api: MaimaiAPI):
+    def __init__(self, scheduled_posts_store: ScheduledPostsStoreDB, maimai_api: MaimaiAPI):
         self.scheduled_posts_store = scheduled_posts_store
         self.maimai_api = maimai_api
         self.running = False

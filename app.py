@@ -25,10 +25,43 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-# 初始化AI配置存储
-from modules.ai_config_store import AIConfigStore
-AI_CONFIG_FILE = os.path.join('data', 'ai_configs.json')
-ai_config_store = AIConfigStore(AI_CONFIG_FILE)
+# 初始化数据库存储（替代JSON存储）
+from modules.database_init import create_database_stores, get_database_scheduler
+
+logger.info("初始化数据库存储...")
+db_stores = create_database_stores()
+
+# 获取数据库版本的存储实例
+ai_config_store = db_stores['ai_config_store']
+topic_store = db_stores['topic_store']
+scheduled_posts_store = db_stores['scheduled_posts_store']
+prompt_store = db_stores['prompt_store']
+group_keywords_store = db_stores['group_keywords_store']
+scheduled_requests_store = db_stores['scheduled_requests_store']
+
+# 调试：检查topic_store实例
+logger.info(f"应用启动时 topic_store 类型: {type(topic_store)}")
+logger.info(f"topic_store 模块: {topic_store.__class__.__module__}")
+logger.info(f"topic_store 类名: {topic_store.__class__.__name__}")
+if hasattr(topic_store, 'keyword_group_dao'):
+    logger.info("✓ topic_store 有 keyword_group_dao 属性：数据库版本")
+else:
+    logger.warning("✗ topic_store 没有 keyword_group_dao 属性：可能是JSON版本")
+
+# 测试方法调用
+test_groups = topic_store.get_all_groups()
+logger.info(f"启动时测试 topic_store.get_all_groups(): {test_groups}")
+
+# 强制确认prompt_store类型
+logger.info(f"应用启动时 prompt_store 类型: {type(prompt_store)}")
+logger.info(f"prompt_store 模块: {prompt_store.__class__.__module__}")
+logger.info(f"prompt_store 类名: {prompt_store.__class__.__name__}")
+
+# 验证数据库存储实例
+if hasattr(prompt_store, 'dao'):
+    logger.info("✓ prompt_store 有 dao 属性（数据库版本）")
+else:
+    logger.error("✗ prompt_store 没有 dao 属性（可能是JSON版本）")
 
 # 初始化AI生成器和脉脉API
 current_ai_config_id = ai_config_store.get_current_config_id()
@@ -36,36 +69,12 @@ current_config = ai_config_store.get_current_config()
 ai_generator = AIContentGenerator(current_config)
 maimai_api = MaimaiAPI(Config.MAIMAI_CONFIG)
 
-# 初始化话题存储
-from modules.topic_store import TopicStore
-TOPIC_FILE = os.path.join('data', 'topics.json')
-topic_store = TopicStore(TOPIC_FILE)
-
-# 初始化定时发布存储
-from modules.scheduled_posts import ScheduledPostsStore
-SCHEDULED_POSTS_FILE = os.path.join('data', 'scheduled_posts.json')
-scheduled_posts_store = ScheduledPostsStore(SCHEDULED_POSTS_FILE)
-
 # 初始化定时发布处理器
 from modules.scheduler import ScheduledPublisher
 scheduled_publisher = ScheduledPublisher(scheduled_posts_store, maimai_api)
 
-# 初始化提示词存储
-from modules.simple_prompt_store import PromptStore
-PROMPT_FILE = os.path.join('data', 'prompts.json')
-prompt_store = PromptStore(PROMPT_FILE)
-
-# 初始化分组关键词存储
-from modules.group_keywords_store import GroupKeywordsStore
-GROUP_KEYWORDS_FILE = os.path.join('data', 'group_keywords.json')
-group_keywords_store = GroupKeywordsStore(GROUP_KEYWORDS_FILE)
-
-# 初始化定时HTTP请求模块
-from modules.scheduled_requests_store import ScheduledRequestsStore
-from modules.daily_request_scheduler import DailyRequestScheduler
-SCHEDULED_REQUESTS_FILE = os.path.join('data', 'scheduled_requests.json')
-scheduled_requests_store = ScheduledRequestsStore(SCHEDULED_REQUESTS_FILE)
-daily_request_scheduler = DailyRequestScheduler(scheduled_requests_store)
+# 初始化定时HTTP请求调度器
+daily_request_scheduler = get_database_scheduler(scheduled_requests_store)
 
 
 @app.route('/')
@@ -216,10 +225,12 @@ def create_topic():
         if not topic_id or not name or not circle_type:
             return jsonify({'success': False, 'error': '话题ID、名称和圈子类型都不能为空'}), 400
         
-        new_id = topic_store.add_topic(name, circle_type, topic_id, group=group)
-        topic = topic_store.get_topic(new_id)
-        
-        return jsonify({'success': True, 'data': topic})
+        success = topic_store.add_topic(topic_id, name, circle_type, group_name=group)
+        if success:
+            topic = topic_store.get_topic(topic_id)
+            return jsonify({'success': True, 'data': topic})
+        else:
+            return jsonify({'success': False, 'error': '添加话题失败'}), 500
     except ValueError as e:
         return jsonify({'success': False, 'error': str(e)}), 400
     except Exception as e:
@@ -304,6 +315,21 @@ def batch_import_topics():
         if len(topics_data) == 0:
             return jsonify({'success': False, 'error': 'topics数组不能为空'}), 400
         
+        # 获取分组名称（如果提供）
+        group_name = data.get('group_name')
+        
+        # 转换字段名：将前端的'group'字段转换为数据库的'group_name'字段
+        for topic in topics_data:
+            if 'group' in topic and topic['group']:
+                topic['group_name'] = topic['group']
+                del topic['group']  # 删除原字段避免混淆
+        
+        # 如果提供了分组名称，为所有话题设置分组
+        if group_name:
+            for topic in topics_data:
+                if 'group_name' not in topic or not topic['group_name']:
+                    topic['group_name'] = group_name
+        
         # 执行批量导入
         results = topic_store.batch_add_topics(topics_data)
         
@@ -334,10 +360,15 @@ def batch_import_topics():
 def get_topic_groups():
     """获取所有话题分组"""
     try:
+        logger.info("get_topic_groups() - 开始获取分组")
+        logger.info(f"topic_store类型: {type(topic_store)}")
         groups = topic_store.get_all_groups()
+        logger.info(f"get_topic_groups() - 获取到分组: {groups}")
         return jsonify({'success': True, 'data': groups})
     except Exception as e:
         logger.error(f"获取分组列表失败: {e}")
+        import traceback
+        logger.error(f"详细错误: {traceback.format_exc()}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/topics/groups', methods=['POST'])
@@ -562,7 +593,7 @@ def create_ai_config():
             return jsonify({'success': False, 'error': '缺少请求数据'}), 400
         
         config_id = ai_config_store.add_config(data)
-        config = ai_config_store.get_all_configs()[config_id]
+        config = ai_config_store.get_config(config_id)
         
         return jsonify({
             'success': True, 
@@ -589,7 +620,7 @@ def update_ai_config(config_id):
         if not success:
             return jsonify({'success': False, 'error': '配置不存在'}), 404
         
-        config = ai_config_store.get_all_configs()[config_id]
+        config = ai_config_store.get_config(config_id)
         return jsonify({
             'success': True, 
             'data': config,
@@ -703,10 +734,19 @@ def test_connection():
 def get_prompts():
     """获取所有提示词"""
     try:
+        logger.info("API /api/prompts GET 被调用")
+        logger.info(f"prompt_store 类型: {type(prompt_store)}")
+        logger.info(f"prompt_store 是否有 load_prompts 方法: {hasattr(prompt_store, 'load_prompts')}")
+        
         prompts = prompt_store.load_prompts()
+        logger.info(f"prompt_store.load_prompts() 返回: {prompts}")
+        logger.info(f"返回数据类型: {type(prompts)}, 长度: {len(prompts) if isinstance(prompts, dict) else 'N/A'}")
+        
         return jsonify({'success': True, 'data': prompts})
     except Exception as e:
         logger.error(f"获取提示词失败: {e}")
+        import traceback
+        logger.error(f"详细错误: {traceback.format_exc()}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

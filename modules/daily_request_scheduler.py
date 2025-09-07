@@ -7,7 +7,7 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR
 import atexit
 
-from modules.scheduled_requests_store import ScheduledRequestsStore
+from modules.scheduled_requests_store_db import ScheduledRequestsStoreDB
 from modules.http_request_executor import HttpRequestExecutor
 
 logger = logging.getLogger(__name__)
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class DailyRequestScheduler:
     """每日定时HTTP请求调度器"""
     
-    def __init__(self, requests_store: ScheduledRequestsStore):
+    def __init__(self, requests_store: ScheduledRequestsStoreDB):
         self.requests_store = requests_store
         self.http_executor = HttpRequestExecutor()
         self.scheduler = None

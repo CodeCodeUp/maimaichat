@@ -1101,6 +1101,8 @@ class MaimaiPublisher {
             const result = await response.json();
             if (result.success) {
                 this.groupKeywords = result.data || {};
+                // 加载完关键词分组后更新分组选择器
+                this.updateKeywordGroupSelect();
                 this.updateStatus('分组关键词加载完成', 'success');
             } else {
                 throw new Error(result.error || '分组关键词加载失败');
@@ -1163,7 +1165,7 @@ class MaimaiPublisher {
         // 如果选择了话题，从话题中获取分组
         if (this.selectedTopicId) {
             const selectedTopic = this.topics.find(t => t.id === this.selectedTopicId);
-            return selectedTopic?.group || null;
+            return selectedTopic?.group_name || null;
         }
         
         // 如果没有选择话题但有分组筛选，使用筛选的分组
@@ -1209,7 +1211,8 @@ class MaimaiPublisher {
         if (!this.keywordGroupSelect) return;
         
         this.keywordGroupSelect.innerHTML = '<option value="">选择要管理的分组</option>';
-        this.groups.forEach(group => {
+        // 使用关键词分组数据而不是话题分组数据
+        Object.keys(this.groupKeywords).forEach(group => {
             const option = document.createElement('option');
             option.value = group;
             option.textContent = group;
@@ -1450,14 +1453,18 @@ class MaimaiPublisher {
             const response = await fetch('/api/topics');
             const result = await response.json();
             if (result.success) {
-                // 保存分组后的话题数据
-                this.groupedTopics = result.data || {};
+                // API现在返回数组格式，需要转换为分组格式
+                this.topics = result.data || [];
                 
-                // 将分组格式转换为平铺格式用于下拉选择
-                this.topics = [];
-                for (const [groupName, topics] of Object.entries(this.groupedTopics)) {
-                    this.topics.push(...topics);
-                }
+                // 将数组格式转换为分组格式
+                this.groupedTopics = {};
+                this.topics.forEach(topic => {
+                    const groupName = topic.group_name || '未分组';
+                    if (!this.groupedTopics[groupName]) {
+                        this.groupedTopics[groupName] = [];
+                    }
+                    this.groupedTopics[groupName].push(topic);
+                });
                 
                 this.updateTopicGroupFilter();
                 this.updateTopicSelect();
@@ -1653,7 +1660,19 @@ class MaimaiPublisher {
             const response = await fetch('/api/topics');
             const result = await response.json();
             if (result.success) {
-                this.renderTopicListByGroups(result.data || {});
+                // API现在返回数组格式，需要转换为分组格式
+                const topics = result.data || [];
+                const groupedTopics = {};
+                
+                topics.forEach(topic => {
+                    const groupName = topic.group_name || '未分组';
+                    if (!groupedTopics[groupName]) {
+                        groupedTopics[groupName] = [];
+                    }
+                    groupedTopics[groupName].push(topic);
+                });
+                
+                this.renderTopicListByGroups(groupedTopics);
             }
         } catch (error) {
             this.updateStatus(`加载话题失败: ${error.message}`, 'error');
@@ -2505,25 +2524,25 @@ class MaimaiPublisher {
     updateAiConfigUI() {
         // 更新右侧栏的当前AI配置显示
         if (this.currentAiName) {
-            const currentConfig = this.aiConfigs[this.currentAiConfigId];
+            const currentConfig = this.aiConfigs.find(config => config.id === this.currentAiConfigId);
             this.currentAiName.textContent = currentConfig ? currentConfig.name : '未知';
         }
 
         // 更新右侧栏的AI配置选择下拉框
         if (this.aiConfigSelect) {
             this.aiConfigSelect.innerHTML = '';
-            Object.entries(this.aiConfigs).forEach(([configId, config]) => {
+            this.aiConfigs.forEach(config => {
                 const option = document.createElement('option');
-                option.value = configId;
+                option.value = config.id;
                 option.textContent = config.name;
-                option.selected = configId === this.currentAiConfigId;
+                option.selected = config.id === this.currentAiConfigId;
                 this.aiConfigSelect.appendChild(option);
             });
         }
 
         // 更新弹窗中的当前配置显示
         if (this.modalCurrentAiName) {
-            const currentConfig = this.aiConfigs[this.currentAiConfigId];
+            const currentConfig = this.aiConfigs.find(config => config.id === this.currentAiConfigId);
             this.modalCurrentAiName.textContent = currentConfig ? currentConfig.name : '未知';
         }
 
@@ -2536,7 +2555,8 @@ class MaimaiPublisher {
 
         this.aiConfigsContainer.innerHTML = '';
         
-        Object.entries(this.aiConfigs).forEach(([configId, config]) => {
+        this.aiConfigs.forEach(config => {
+            const configId = config.id;
             const configItem = document.createElement('div');
             configItem.className = `ai-config-item ${configId === this.currentAiConfigId ? 'current' : ''}`;
             configItem.setAttribute('data-config-id', configId);  // 添加数据属性
@@ -2616,7 +2636,8 @@ class MaimaiPublisher {
             const result = await response.json();
             
             if (result.success) {
-                this.updateStatus(`AI配置 "${this.aiConfigs[configId].name}" 连接测试成功`, 'success');
+                const config = this.aiConfigs.find(c => c.id === configId);
+                this.updateStatus(`AI配置 "${config ? config.name : 'Unknown'}" 连接测试成功`, 'success');
                 this.updateConfigTestResult(configId, 'success', '连接正常');
             } else {
                 throw new Error(result.error || '连接测试失败');
