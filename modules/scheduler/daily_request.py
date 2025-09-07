@@ -7,8 +7,8 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR
 import atexit
 
-from modules.scheduled_requests_store_db import ScheduledRequestsStoreDB
-from modules.http_request_executor import HttpRequestExecutor
+from modules.scheduler.http_request import ScheduledRequestsStoreDB
+from modules.scheduler.http_executor import HttpRequestExecutor
 
 logger = logging.getLogger(__name__)
 

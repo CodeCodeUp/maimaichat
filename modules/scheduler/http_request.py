@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Dict, List, Optional
 import logging
 
-from modules.database_dao import ScheduledRequestDAO
+from modules.database.dao import ScheduledRequestDAO
 
 logger = logging.getLogger(__name__)
 

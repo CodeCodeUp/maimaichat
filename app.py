@@ -3,8 +3,8 @@ import logging
 import os
 from datetime import datetime
 from config import Config
-from modules.ai_generator import AIContentGenerator
-from modules.maimai_api import MaimaiAPI
+from modules.ai.generator import AIContentGenerator
+from modules.maimai.api import MaimaiAPI
 
 # 创建Flask应用
 app = Flask(__name__, static_folder='static', static_url_path='/static')
@@ -26,7 +26,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # 初始化数据库存储（替代JSON存储）
-from modules.database_init import create_database_stores, get_database_scheduler
+from modules.database.init import create_database_stores, get_database_scheduler
 
 logger.info("初始化数据库存储...")
 db_stores = create_database_stores()
@@ -70,7 +70,7 @@ ai_generator = AIContentGenerator(current_config)
 maimai_api = MaimaiAPI(Config.MAIMAI_CONFIG)
 
 # 初始化定时发布处理器
-from modules.scheduler import ScheduledPublisher
+from modules.scheduler.publisher import ScheduledPublisher
 scheduled_publisher = ScheduledPublisher(scheduled_posts_store, maimai_api)
 
 # 初始化定时HTTP请求调度器

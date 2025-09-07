@@ -1,7 +1,7 @@
 from typing import Dict, List, Optional
 import logging
 
-from modules.database_dao import AIConfigDAO, AIConfigSettingsDAO
+from modules.database.dao import AIConfigDAO, AIConfigSettingsDAO
 
 logger = logging.getLogger(__name__)
 

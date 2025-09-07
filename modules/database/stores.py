@@ -3,7 +3,7 @@ import logging
 import uuid
 from datetime import datetime
 
-from modules.database_dao import TopicDAO, PromptDAO, KeywordDAO, KeywordGroupDAO, GroupsDAO
+from modules.database.dao import TopicDAO, PromptDAO, KeywordDAO, KeywordGroupDAO, GroupsDAO
 
 logger = logging.getLogger(__name__)
 

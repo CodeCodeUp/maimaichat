@@ -16,9 +16,9 @@ sys.path.insert(0, script_dir)
 os.chdir(script_dir)
 
 from config import Config
-from modules.scheduler import ScheduledPublisher
-from modules.scheduled_posts import ScheduledPostsStore
-from modules.maimai_api import MaimaiAPI
+from modules.scheduler.publisher import ScheduledPublisher
+from modules.scheduler.scheduled_posts import ScheduledPostsStore
+from modules.maimai.api import MaimaiAPI
 
 # 创建全局关闭事件
 shutdown_event = Event()

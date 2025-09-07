@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 import logging
 
-from modules.database_dao import ScheduledPostDAO
+from modules.database.dao import ScheduledPostDAO
 
 logger = logging.getLogger(__name__)
 

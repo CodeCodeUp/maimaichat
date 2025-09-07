@@ -1,11 +1,11 @@
 import os
 import logging
-from modules.database_manager import init_database_manager
-from modules.database_stores import *
-from modules.scheduled_requests_store_db import ScheduledRequestsStoreDB
-from modules.scheduled_posts_db import ScheduledPostsStoreDB
-from modules.ai_config_store_db import AIConfigStoreDB
-from modules.daily_request_scheduler import DailyRequestScheduler
+from modules.database.manager import init_database_manager
+from modules.database.stores import *
+from modules.scheduler.http_request import ScheduledRequestsStoreDB
+from modules.scheduler.scheduled_posts import ScheduledPostsStoreDB
+from modules.ai.config_store import AIConfigStoreDB
+from modules.scheduler.daily_request import DailyRequestScheduler
 
 logger = logging.getLogger(__name__)
 

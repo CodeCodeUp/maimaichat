@@ -2,8 +2,8 @@ import threading
 import time
 import logging
 from datetime import datetime
-from modules.scheduled_posts_db import ScheduledPostsStoreDB
-from modules.maimai_api import MaimaiAPI
+from modules.scheduler.scheduled_posts import ScheduledPostsStoreDB
+from modules.maimai.api import MaimaiAPI
 
 logger = logging.getLogger(__name__)
 

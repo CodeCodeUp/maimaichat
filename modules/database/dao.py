@@ -1,5 +1,5 @@
 from typing import List, Dict, Any, Optional
-from modules.base_dao import BaseDAO, KeyValueDAO
+from modules.database.base_dao import BaseDAO, KeyValueDAO
 import logging
 
 logger = logging.getLogger(__name__)

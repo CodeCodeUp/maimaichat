@@ -3,7 +3,7 @@ from typing import Dict, List, Optional, Any, Union
 import logging
 from datetime import datetime
 
-from modules.database_manager import get_db_manager, json_serialize, json_deserialize, format_datetime, parse_datetime
+from modules.database.manager import get_db_manager, json_serialize, json_deserialize, format_datetime, parse_datetime
 
 logger = logging.getLogger(__name__)
 
