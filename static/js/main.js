@@ -1575,6 +1575,18 @@ class MaimaiPublisher {
                 this.titleInput.value = selectedTopic.name;
                 this.updateStatus(`已选择话题："${selectedTopic.name}"，名称已填入标题框`, 'success');
             }
+            
+            // 将话题名称添加到聊天输入框
+            if (selectedTopic && this.chatInput) {
+                const currentText = this.chatInput.value.trim();
+                const topicText = `#${selectedTopic.name}`;
+                if (currentText) {
+                    this.chatInput.value = currentText + ' ' + topicText;
+                } else {
+                    this.chatInput.value = topicText;
+                }
+                this.updateStatus(`已将话题"${selectedTopic.name}"添加到消息框`, 'success');
+            }
         } else if (this.topicUrlInput) {
             // 没有选择话题，启用链接输入框
             this.topicUrlInput.disabled = false;
