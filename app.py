@@ -60,6 +60,13 @@ from modules.group_keywords_store import GroupKeywordsStore
 GROUP_KEYWORDS_FILE = os.path.join('data', 'group_keywords.json')
 group_keywords_store = GroupKeywordsStore(GROUP_KEYWORDS_FILE)
 
+# 初始化定时HTTP请求模块
+from modules.scheduled_requests_store import ScheduledRequestsStore
+from modules.daily_request_scheduler import DailyRequestScheduler
+SCHEDULED_REQUESTS_FILE = os.path.join('data', 'scheduled_requests.json')
+scheduled_requests_store = ScheduledRequestsStore(SCHEDULED_REQUESTS_FILE)
+daily_request_scheduler = DailyRequestScheduler(scheduled_requests_store)
+
 
 @app.route('/')
 def index():
@@ -831,6 +838,15 @@ if __name__ == '__main__':
         logger.error(f"启动定时发布处理器失败: {e}")
         exit(1)
     
+    # 启动每日定时HTTP请求调度器
+    try:
+        daily_request_scheduler.start()
+        logger.info("每日定时HTTP请求调度器已启动")
+    except Exception as e:
+        logger.error(f"启动每日定时HTTP请求调度器失败: {e}")
+        # 注意：这里不退出程序，因为这是新功能，不应影响主功能
+        logger.warning("每日定时HTTP请求功能可能无法正常工作")
+    
     try:
         # 注册信号处理器以支持优雅关闭
         import signal
@@ -838,6 +854,7 @@ if __name__ == '__main__':
         def signal_handler(signum, frame):
             logger.info(f"收到退出信号 {signum}，正在优雅关闭...")
             scheduled_publisher.stop()
+            daily_request_scheduler.stop()
             exit(0)
         
         signal.signal(signal.SIGINT, signal_handler)
@@ -862,5 +879,11 @@ if __name__ == '__main__':
             scheduled_publisher.stop(timeout=15)
         except Exception as e:
             logger.error(f"停止定时发布处理器时出错: {e}")
-        logger.info("定时发布后台任务已停止")
+        
+        try:
+            daily_request_scheduler.stop()
+        except Exception as e:
+            logger.error(f"停止每日定时HTTP请求调度器时出错: {e}")
+        
+        logger.info("所有后台任务已停止")
         logger.info("=== 脉脉自动发布系统已退出 ===")

@@ -1,0 +1,41 @@
+{
+  "anyrouter_signin": {
+    "id": "anyrouter_signin",
+    "name": "AnyRouter每日签到",
+    "url": "https://anyrouter.top/api/user/sign_in/",
+    "method": "POST",
+    "headers": {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    },
+    "cookies": {
+      "session": "MTc1NTkxODAwMnxEWDhFQVFMX2dBQUJFQUVRQUFEX3h2LUFBQVlHYzNSeWFXNW5EQWNBQldkeWIzVndCbk4wY21sdVp3d0pBQWRrWldaaGRXeDBCbk4wY21sdVp3d05BQXR2WVhWMGFGOXpkR0YwWlFaemRISnBibWNNRGdBTU1HbGhhekpIZG5Od01VdHVCbk4wY21sdVp3d0VBQUpwWkFOcGJuUUVCUUQ5QWtGY0JuTjBjbWx1Wnd3S0FBaDFjMlZ5Ym1GdFpRWnpkSEpwYm1jTUR3QU5iR2x1ZFhoa2IxODNNemt3TWdaemRISnBibWNNQmdBRWNtOXNaUU5wYm5RRUFnQUNCbk4wY21sdVp3d0lBQVp6ZEdGMGRYTURhVzUwQkFJQUFnPT18peoMCgyU3AFctkCuPpm7pUcZ34YTT31xcdhWF1BDQlg=",
+      "acw_tc": "a3b523a817572081368403317e648a4dcf1a2ee7d939436d8863e3a20e",
+      "cdn_sec_tc": "a3b523a817572081368403317e648a4dcf1a2ee7d939436d8863e3a20e",
+      "acw_sc__v2": "68bcde48128636735ae230cf11e976bde0cc11e9"
+    },
+    "data": null,
+    "enabled": true,
+    "created_at": "2025-09-07T09:00:00",
+    "last_executed": null,
+    "last_result": null,
+    "execution_count": 0
+  },
+  "veloera_checkin": {
+    "id": "veloera_checkin",
+    "name": "Veloera每日签到",
+    "url": "https://veloera.wenwen12345.top/api/user/check_in",
+    "method": "POST",
+    "headers": {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    },
+    "cookies": {
+      "session": "MTc1NjMwNTI1N3xEWDhFQVFMX2dBQUJFQUVRQUFEX2xfLUFBQVVHYzNSeWFXNW5EQVlBQkhKdmJHVURhVzUwQkFJQUFnWnpkSEpwYm1jTUNBQUdjM1JoZEhWekEybHVkQVFDQUFJR2MzUnlhVzVuREFjQUJXZHliM1Z3Qm5OMGNtbHVad3dKQUFka1pXWmhkV3gwQm5OMGNtbHVad3dFQUFKcFpBTnBiblFFQkFELURtZ0djM1J5YVc1bkRBb0FDSFZ6WlhKdVlXMWxCbk4wY21sdVp3d09BQXhzYVc1MWVHUnZYekU0TkRRPXxk9TeMx30OnqeDR9NZ93Cb2YVdKNetMFAdP3Jx0La9EA=="
+    },
+    "data": null,
+    "enabled": true,
+    "created_at": "2025-09-07T09:52:00",
+    "last_executed": null,
+    "last_result": null,
+    "execution_count": 0
+  }
+}

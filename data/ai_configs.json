@@ -17,6 +17,15 @@
       "main_model": "gemini-2.5-pro-preview-06-05",
       "assistant_model": "gemini-2.5-flash-search",
       "enabled": true
+    },
+    "a7057ecd": {
+      "name": "b4u",
+      "description": "",
+      "api_key": "sk-l8yywudSYHRTTPOHn52cQLYtMWnFv6pF1dwswoW4e06k0HFw",
+      "base_url": "https://b4u.qzz.io/v1",
+      "main_model": "claude-4-sonnet-think",
+      "assistant_model": "",
+      "enabled": true
     }
   },
   "current_config_id": "tbai"
