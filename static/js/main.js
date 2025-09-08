@@ -1579,7 +1579,7 @@ class MaimaiPublisher {
             // 将话题名称添加到聊天输入框
             if (selectedTopic && this.chatInput) {
                 const currentText = this.chatInput.value.trim();
-                const topicText = `#${selectedTopic.name}`;
+                const topicText = `${selectedTopic.name} 3篇`;
                 if (currentText) {
                     this.chatInput.value = currentText + ' ' + topicText;
                 } else {
