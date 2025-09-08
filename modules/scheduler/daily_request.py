@@ -9,6 +9,7 @@ import atexit
 
 from modules.scheduler.http_request import ScheduledRequestsStoreDB
 from modules.scheduler.http_executor import HttpRequestExecutor
+from modules.scheduler.lottery_executor import LotteryExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,7 @@ class DailyRequestScheduler:
     def __init__(self, requests_store: ScheduledRequestsStoreDB):
         self.requests_store = requests_store
         self.http_executor = HttpRequestExecutor()
+        self.lottery_executor = LotteryExecutor()
         self.scheduler = None
         self.running = False
         self._lock = threading.Lock()
@@ -46,6 +48,15 @@ class DailyRequestScheduler:
                     trigger=CronTrigger(hour=9, minute=0, second=0),
                     id='daily_http_requests',
                     name='每日9点执行HTTP请求',
+                    replace_existing=True
+                )
+                
+                # 添加每日抽奖任务 (每天上午0点)
+                self.scheduler.add_job(
+                    func=self._execute_lottery_task,
+                    trigger=CronTrigger(hour=0, minute=10, second=0),
+                    id='daily_lottery_task',
+                    name='每日0点执行抽奖任务',
                     replace_existing=True
                 )
                 
@@ -87,6 +98,9 @@ class DailyRequestScheduler:
                 
                 if self.http_executor:
                     self.http_executor.close()
+                
+                if self.lottery_executor:
+                    self.lottery_executor.close()
                 
                 self.running = False
                 
@@ -156,6 +170,25 @@ class DailyRequestScheduler:
         except Exception as e:
             logger.error(f"执行每日定时请求时发生异常: {e}")
     
+    def _execute_lottery_task(self):
+        """执行每日抽奖任务"""
+        logger.info("开始执行每日抽奖任务")
+        
+        try:
+            # 执行抽奖流程
+            success, result = self.lottery_executor.execute_lottery_flow()
+            
+            if success:
+                logger.info(f"抽奖任务执行成功: {result}")
+            else:
+                logger.error(f"抽奖任务执行失败: {result}")
+            
+            # 记录执行结果到日志
+            logger.info(f"抽奖任务执行完成 - 状态: {'成功' if success else '失败'}")
+            
+        except Exception as e:
+            logger.error(f"执行抽奖任务时发生异常: {e}")
+    
     def _job_listener(self, event):
         """任务执行事件监听器"""
         job_id = event.job_id
@@ -200,6 +233,22 @@ class DailyRequestScheduler:
             return True, "手动执行已启动"
         except Exception as e:
             error_msg = f"手动执行失败: {e}"
+            logger.error(error_msg)
+            return False, error_msg
+    
+    def trigger_manual_lottery(self):
+        """手动触发抽奖任务（用于测试）"""
+        logger.info("手动触发抽奖任务执行")
+        try:
+            # 在新线程中执行，避免阻塞
+            thread = threading.Thread(
+                target=self._execute_lottery_task,
+                name='ManualLottery'
+            )
+            thread.start()
+            return True, "手动抽奖任务已启动"
+        except Exception as e:
+            error_msg = f"手动抽奖任务失败: {e}"
             logger.error(error_msg)
             return False, error_msg
     
