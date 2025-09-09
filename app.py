@@ -624,6 +624,7 @@ def create_auto_publish_config():
     try:
         data = request.get_json()
         topic_id = data.get('topic_id')
+        prompt_key = data.get('prompt_key')  # 添加提示词键名
         max_posts = data.get('max_posts', -1)
         
         if not topic_id:
@@ -639,7 +640,7 @@ def create_auto_publish_config():
         if existing_config:
             return jsonify({'success': False, 'error': '该话题已配置自动发布'}), 400
         
-        config_id = auto_publish_store.create_config(topic_id, max_posts)
+        config_id = auto_publish_store.create_config(topic_id, max_posts, prompt_key)
         if config_id:
             config = auto_publish_store.get_config(config_id)
             config['topic_name'] = topic_data.get('name', '')
@@ -1077,6 +1078,48 @@ def save_prompts():
             
     except Exception as e:
         logger.error(f"保存提示词失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/prompts/current', methods=['GET'])
+def get_current_prompt():
+    """获取当前选定的提示词"""
+    try:
+        current_key, current_content = prompt_store.get_current_prompt()
+        return jsonify({
+            'success': True, 
+            'data': {
+                'key': current_key,
+                'content': current_content
+            }
+        })
+    except Exception as e:
+        logger.error(f"获取当前提示词失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/prompts/current', methods=['POST'])
+def set_current_prompt():
+    """设置当前选定的提示词"""
+    try:
+        data = request.get_json()
+        if not data or 'key' not in data:
+            return jsonify({'success': False, 'error': '缺少必需参数：key'}), 400
+        
+        prompt_key = data['key']
+        
+        # 检查提示词是否存在
+        if not prompt_store.exists_prompt(prompt_key):
+            return jsonify({'success': False, 'error': '指定的提示词不存在'}), 404
+        
+        success = prompt_store.set_current_prompt_key(prompt_key)
+        if success:
+            return jsonify({'success': True, 'message': f'已设置当前提示词: {prompt_key}'})
+        else:
+            return jsonify({'success': False, 'error': '设置失败'}), 500
+            
+    except Exception as e:
+        logger.error(f"设置当前提示词失败: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

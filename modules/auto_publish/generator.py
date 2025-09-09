@@ -36,6 +36,10 @@ class AutoPublishCycleGenerator:
         self.conversation_dao = AIConversationDAO()
         self.scheduled_post_dao = ScheduledPostDAO()
         self.topic_dao = TopicDAO()
+        
+        # 添加提示词存储的引用
+        from modules.database.stores import PromptStoreDB
+        self.prompt_store = PromptStoreDB()
     
     def start_auto_publish_cycle(self, config_id: str) -> bool:
         """
@@ -127,10 +131,10 @@ class AutoPublishCycleGenerator:
                 return False
             
             # 获取或创建AI对话历史
-            conversation = self._get_or_create_conversation(topic_id)
+            conversation = self._get_or_create_conversation(topic_id, config)
             
             # 生成内容
-            content_data = self._generate_content_with_history(topic, conversation)
+            content_data = self._generate_content_with_history(topic, conversation, config)
             if not content_data:
                 logger.error(f"生成内容失败，话题ID: {topic_id}")
                 return False
@@ -144,11 +148,13 @@ class AutoPublishCycleGenerator:
             post_id = f"auto_{uuid.uuid4().hex[:12]}_{int(datetime.now().timestamp())}"
             
             # 创建定时发布任务
+            # 使用解析出的标题，如果没有标题则使用话题名称
+            post_title = content_data.get('title') or ""
+            
             post_data = {
                 'id': post_id,
-                'title': f"[自动发布] {topic['name']}",
+                'title': post_title,
                 'content': content_data['content'],
-                'topic_url': content_data.get('topic_url', ''),
                 'topic_id': topic_id,
                 'circle_type': topic.get('circle_type', ''),
                 'topic_name': topic['name'],
@@ -172,19 +178,45 @@ class AutoPublishCycleGenerator:
             logger.error(f"生成并安排内容失败: {e}")
             return False
     
-    def _get_or_create_conversation(self, topic_id: str) -> Dict[str, Any]:
+    def _get_or_create_conversation(self, topic_id: str, config: Dict[str, Any]) -> Dict[str, Any]:
         """获取或创建AI对话历史"""
         try:
             # 查找现有对话
             conversation = self.conversation_dao.get_latest_by_topic(topic_id)
             
             if not conversation:
+                # 获取配置中指定的提示词
+                prompt_key = config.get('prompt_key')
+                if prompt_key:
+                    prompt_content = self.prompt_store.get_prompt(prompt_key)
+                    if prompt_content:
+                        system_content = f"{prompt_content}。你正在为话题进行持续的内容创作。请基于话题内容生成有价值、有深度的讨论内容。"
+                        logger.info(f"使用配置中指定的提示词: {prompt_key}")
+                    else:
+                        # 如果指定的提示词不存在，使用当前选定的提示词作为后备
+                        current_prompt_key, current_prompt_content = self.prompt_store.get_current_prompt()
+                        if current_prompt_content:
+                            system_content = f"{current_prompt_content}。你正在为话题进行持续的内容创作。请基于话题内容生成有价值、有深度的讨论内容。"
+                            logger.warning(f"指定的提示词 {prompt_key} 不存在，使用当前提示词: {current_prompt_key}")
+                        else:
+                            system_content = "你是一个专业的内容创作者，正在为话题进行持续的内容创作。请基于话题内容生成有价值、有深度的讨论内容。"
+                            logger.warning("指定的提示词和当前提示词都不存在，使用默认系统消息")
+                else:
+                    # 如果配置中没有指定提示词，使用当前选定的提示词
+                    current_prompt_key, current_prompt_content = self.prompt_store.get_current_prompt()
+                    if current_prompt_content:
+                        system_content = f"{current_prompt_content}。你正在为话题进行持续的内容创作。请基于话题内容生成有价值、有深度的讨论内容。"
+                        logger.info(f"配置未指定提示词，使用当前选定的提示词: {current_prompt_key}")
+                    else:
+                        system_content = "你是一个专业的内容创作者，正在为话题进行持续的内容创作。请基于话题内容生成有价值、有深度的讨论内容。"
+                        logger.warning("配置未指定提示词且当前提示词不存在，使用默认系统消息")
+                
                 # 创建新对话
                 conversation_id = f"auto_{topic_id}_{int(datetime.now().timestamp())}"
                 initial_messages = [
                     {
                         "role": "system",
-                        "content": f"你是一个专业的内容创作者，正在为话题进行持续的内容创作。请基于话题内容生成有价值、有深度的讨论内容。"
+                        "content": system_content
                     }
                 ]
                 
@@ -197,7 +229,7 @@ class AutoPublishCycleGenerator:
             logger.error(f"获取或创建对话历史失败: {e}")
             return None
     
-    def _generate_content_with_history(self, topic: Dict[str, Any], conversation: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def _generate_content_with_history(self, topic: Dict[str, Any], conversation: Dict[str, Any], config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """基于对话历史生成内容"""
         try:
             # 获取历史消息
@@ -218,8 +250,35 @@ class AutoPublishCycleGenerator:
                 logger.warning(f"messages类型不正确: {type(messages)}，使用空列表")
                 messages = []
             
-            # 添加当前生成请求
+            # 获取配置中指定的提示词
+            prompt_key = config.get('prompt_key')
+            if prompt_key:
+                base_prompt = self.prompt_store.get_prompt(prompt_key)
+                if base_prompt:
+                    logger.info(f"使用配置中指定的提示词: {prompt_key}")
+                else:
+                    # 如果指定的提示词不存在，使用当前选定的提示词作为后备
+                    current_prompt_key, current_prompt_content = self.prompt_store.get_current_prompt()
+                    if current_prompt_content:
+                        base_prompt = current_prompt_content
+                        logger.warning(f"指定的提示词 {prompt_key} 不存在，使用当前提示词: {current_prompt_key}")
+                    else:
+                        base_prompt = "你是一个资深新媒体编辑，擅长将话题梳理成适合脉脉的内容。"
+                        logger.warning("指定的提示词和当前提示词都不存在，使用默认提示词")
+            else:
+                # 如果配置中没有指定提示词，使用当前选定的提示词
+                current_prompt_key, current_prompt_content = self.prompt_store.get_current_prompt()
+                if current_prompt_content:
+                    base_prompt = current_prompt_content
+                    logger.info(f"配置未指定提示词，使用当前选定的提示词: {current_prompt_key}")
+                else:
+                    base_prompt = "你是一个资深新媒体编辑，擅长将话题梳理成适合脉脉的内容。"
+                    logger.warning("配置未指定提示词且当前提示词不存在，使用默认提示词")
+            
+            # 构建用户提示词，结合当前提示词和具体要求
             user_prompt = f"""
+{base_prompt}
+
 请基于话题"{topic['name']}"生成一篇新的讨论内容。
 
 要求：
@@ -247,6 +306,42 @@ class AutoPublishCycleGenerator:
             if response and response.get('success'):
                 generated_content = response['content']
                 
+                # 尝试解析JSON格式，如果AI返回的是JSON格式
+                title = None
+                content = generated_content
+                
+                try:
+                    import json
+                    import re
+                    
+                    # 提取JSON内容
+                    json_match = re.search(r'```json\s*(\{.*?\})\s*```', generated_content, re.DOTALL)
+                    if not json_match:
+                        json_match = re.search(r'(\{.*?"title".*?"content".*?\})', generated_content, re.DOTALL)
+                    
+                    if json_match:
+                        json_str = json_match.group(1)
+                        parsed_json = json.loads(json_str)
+                        
+                        if isinstance(parsed_json, dict) and 'title' in parsed_json and 'content' in parsed_json:
+                            # 解析出标题和内容
+                            title = parsed_json['title']
+                            content = parsed_json['content']
+                            logger.info(f"成功解析JSON格式内容 - 标题: {title[:20]}...")
+                        else:
+                            # 如果解析失败，使用原始内容
+                            content = generated_content
+                            logger.info("JSON解析失败，使用原始内容")
+                    else:
+                        # 没有找到JSON格式，使用原始内容
+                        content = generated_content
+                        logger.info("未检测到JSON格式，使用原始内容")
+                        
+                except (json.JSONDecodeError, Exception) as e:
+                    # 解析失败，使用原始内容
+                    content = generated_content
+                    logger.warning(f"JSON解析异常: {e}，使用原始内容")
+                
                 # 添加AI回复到历史
                 messages.append({
                     "role": "assistant",
@@ -254,7 +349,8 @@ class AutoPublishCycleGenerator:
                 })
                 
                 return {
-                    'content': generated_content,
+                    'title': title,
+                    'content': content,
                     'messages': messages,
                     'topic_url': f"/topics/{topic['id']}"
                 }

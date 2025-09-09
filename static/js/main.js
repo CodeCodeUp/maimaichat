@@ -133,6 +133,7 @@ class MaimaiPublisher {
         this.closeAutoPublishModalBtn = document.getElementById('close-auto-publish-modal');
         this.closeAutoPublishModalFooterBtn = document.getElementById('close-auto-publish-modal-footer');
         this.autoPublishTopicSelect = document.getElementById('auto-publish-topic-select');
+        this.autoPublishPromptSelect = document.getElementById('auto-publish-prompt-select');
         this.autoPublishMaxPostsInput = document.getElementById('auto-publish-max-posts');
         this.createAutoPublishBtn = document.getElementById('create-auto-publish-btn');
         this.refreshAutoPublishBtn = document.getElementById('refresh-auto-publish');
@@ -313,7 +314,7 @@ class MaimaiPublisher {
         
         buttons.forEach(button => {
             if (button) {
-                this.setButtonLoading(button, 'error');
+                this.setButtonLoading(button, false);
             }
         });
     }
@@ -327,16 +328,39 @@ class MaimaiPublisher {
             if (result.success) {
                 this.prompts = result.data;
                 
-                // 尝试从localStorage加载上次选择的提示词
-                const lastSelectedPrompt = localStorage.getItem('lastSelectedPrompt');
+                // 从后端获取当前选定的提示词
                 let selectedKey = null;
+                try {
+                    const currentResponse = await fetch('/api/prompts/current');
+                    const currentResult = await currentResponse.json();
+                    
+                    if (currentResult.success && currentResult.data.key && this.prompts[currentResult.data.key]) {
+                        selectedKey = currentResult.data.key;
+                    }
+                } catch (error) {
+                    console.warn('获取当前提示词失败，将使用默认逻辑:', error);
+                }
                 
-                if (lastSelectedPrompt && this.prompts[lastSelectedPrompt]) {
-                    // 使用上次选择的提示词
-                    selectedKey = lastSelectedPrompt;
-                } else {
-                    // 使用第一个提示词作为默认值
-                    selectedKey = Object.keys(this.prompts)[0];
+                // 如果后端没有设置或获取失败，尝试从localStorage
+                if (!selectedKey) {
+                    const lastSelectedPrompt = localStorage.getItem('lastSelectedPrompt');
+                    if (lastSelectedPrompt && this.prompts[lastSelectedPrompt]) {
+                        selectedKey = lastSelectedPrompt;
+                        
+                        // 同步到后端
+                        try {
+                            await fetch('/api/prompts/current', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ key: selectedKey })
+                            });
+                        } catch (error) {
+                            console.warn('同步提示词到后端失败:', error);
+                        }
+                    } else {
+                        // 使用第一个提示词作为默认值
+                        selectedKey = Object.keys(this.prompts)[0];
+                    }
                 }
                 
                 this.currentPrompt = this.prompts[selectedKey] || '';
@@ -423,6 +447,22 @@ class MaimaiPublisher {
         
         // 保存选择到localStorage
         localStorage.setItem('lastSelectedPrompt', selectedKey);
+        
+        // 同步到后端
+        try {
+            const response = await fetch('/api/prompts/current', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: selectedKey })
+            });
+            
+            const result = await response.json();
+            if (!result.success) {
+                console.warn('同步当前提示词到后端失败:', result.error);
+            }
+        } catch (error) {
+            console.warn('同步当前提示词到后端异常:', error);
+        }
         
         this.updateCurrentPromptDisplay();
         this.clearChat();
@@ -2867,6 +2907,7 @@ class MaimaiPublisher {
         if (this.autoPublishModal) {
             this.autoPublishModal.style.display = 'block';
             await this.loadAutoPublishTopics();
+            await this.loadAutoPublishPrompts();
             await this.loadAutoPublishConfigs();
         }
     }
@@ -2874,6 +2915,26 @@ class MaimaiPublisher {
     closeAutoPublishModal() {
         if (this.autoPublishModal) {
             this.autoPublishModal.style.display = 'none';
+        }
+    }
+
+    async loadAutoPublishPrompts() {
+        try {
+            // 填充提示词选择下拉框
+            if (this.autoPublishPromptSelect) {
+                this.autoPublishPromptSelect.innerHTML = '<option value="">使用当前选定的提示词</option>';
+                
+                // 获取所有提示词
+                const promptKeys = Object.keys(this.prompts);
+                promptKeys.forEach(key => {
+                    const option = document.createElement('option');
+                    option.value = key;
+                    option.textContent = key;
+                    this.autoPublishPromptSelect.appendChild(option);
+                });
+            }
+        } catch (error) {
+            console.error('加载自动发布提示词失败:', error);
         }
     }
 
@@ -3033,6 +3094,7 @@ class MaimaiPublisher {
     async createAutoPublishConfig() {
         try {
             const topicId = this.autoPublishTopicSelect?.value;
+            const promptKey = this.autoPublishPromptSelect?.value;
             const maxPosts = parseInt(this.autoPublishMaxPostsInput?.value || '-1');
             
             if (!topicId) {
@@ -3044,6 +3106,11 @@ class MaimaiPublisher {
                 topic_id: topicId,
                 max_posts: maxPosts
             };
+            
+            // 如果选择了特定的提示词，添加到数据中
+            if (promptKey) {
+                data.prompt_key = promptKey;
+            }
             
             const response = await fetch('/api/auto-publish', {
                 method: 'POST',
@@ -3067,6 +3134,7 @@ class MaimaiPublisher {
                 
                 // 重置表单
                 if (this.autoPublishTopicSelect) this.autoPublishTopicSelect.value = '';
+                if (this.autoPublishPromptSelect) this.autoPublishPromptSelect.value = '';
                 if (this.autoPublishMaxPostsInput) this.autoPublishMaxPostsInput.value = '-1';
                 // 重新加载配置列表
                 await this.loadAutoPublishConfigs();

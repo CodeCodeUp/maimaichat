@@ -54,7 +54,7 @@ class DailyRequestScheduler:
                 # 添加每日抽奖任务 (每天上午0点)
                 self.scheduler.add_job(
                     func=self._execute_lottery_task,
-                    trigger=CronTrigger(hour=0, minute=10, second=0),
+                    trigger=CronTrigger(hour=9, minute=0, second=0),
                     id='daily_lottery_task',
                     name='每日0点执行抽奖任务',
                     replace_existing=True

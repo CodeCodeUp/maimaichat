@@ -389,6 +389,13 @@
                             </select>
                         </div>
                         <div class="form-row">
+                            <label>选择提示词:</label>
+                            <select id="auto-publish-prompt-select" class="grow">
+                                <option value="">使用当前选定的提示词</option>
+                            </select>
+                            <span class="help-text">选择此话题使用的提示词，留空则使用全局当前提示词</span>
+                        </div>
+                        <div class="form-row">
                             <label>最大发布数量:</label>
                             <input type="number" id="auto-publish-max-posts" value="-1" min="-1" placeholder="-1表示无限发布">
                             <span class="help-text">-1表示无限发布，其他数字表示最大发布次数</span>

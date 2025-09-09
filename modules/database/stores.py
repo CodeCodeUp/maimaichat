@@ -388,6 +388,44 @@ class PromptStoreDB:
         except Exception as e:
             logger.error(f"保存提示词失败: {e}")
             return False
+    
+    def get_current_prompt_key(self) -> str:
+        """获取当前选定的提示词名称"""
+        try:
+            return self.dao.get_prompt('__current_prompt_key__', '')
+        except Exception as e:
+            logger.error(f"获取当前提示词键失败: {e}")
+            return ''
+    
+    def set_current_prompt_key(self, prompt_key: str) -> bool:
+        """设置当前选定的提示词名称"""
+        try:
+            result = self.dao.set_prompt('__current_prompt_key__', prompt_key)
+            if result:
+                logger.info(f"已设置当前提示词键: {prompt_key}")
+            return result
+        except Exception as e:
+            logger.error(f"设置当前提示词键失败: {e}")
+            return False
+    
+    def get_current_prompt(self) -> tuple[str, str]:
+        """获取当前选定的提示词 (名称, 内容)"""
+        try:
+            current_key = self.get_current_prompt_key()
+            if not current_key:
+                # 如果没有设置当前提示词，使用第一个可用的提示词
+                all_prompts = self.get_all_prompts()
+                if all_prompts:
+                    current_key = list(all_prompts.keys())[0]
+                    self.set_current_prompt_key(current_key)
+                else:
+                    return '', ''
+            
+            content = self.get_prompt(current_key, '')
+            return current_key, content
+        except Exception as e:
+            logger.error(f"获取当前提示词失败: {e}")
+            return '', ''
 
 
 class GroupKeywordsStoreDB:
@@ -548,13 +586,14 @@ class AutoPublishStoreDB:
         self.conversation_dao = AIConversationDAO()
         logger.info("初始化自动发布配置数据库存储")
     
-    def create_config(self, topic_id: str, max_posts: int = -1) -> Optional[str]:
+    def create_config(self, topic_id: str, max_posts: int = -1, prompt_key: str = None) -> Optional[str]:
         """创建自动发布配置"""
         try:
             config_id = str(uuid.uuid4())
             config_data = {
                 'id': config_id,
                 'topic_id': topic_id,
+                'prompt_key': prompt_key,
                 'max_posts': max_posts,
                 'current_posts': 0,
                 'is_active': 1
@@ -562,7 +601,7 @@ class AutoPublishStoreDB:
             
             result = self.config_dao.insert(config_data)
             if result:
-                logger.info(f"创建自动发布配置成功: {config_id}")
+                logger.info(f"创建自动发布配置成功: {config_id}, 提示词: {prompt_key or '使用当前提示词'}")
                 return config_id
             return None
         except Exception as e:
