@@ -110,6 +110,12 @@
                     </div>
                 </div>
                 <div class="section">
+                    <div class="section-title">自动发布管理</div>
+                    <div class="row">
+                        <button id="manage-auto-publish" class="btn-info grow">管理自动发布</button>
+                    </div>
+                </div>
+                <div class="section">
                     <div class="section-title">
                         定时发布
                         <span id="pending-count" class="pending-count">0</span>
@@ -360,6 +366,54 @@
             </div>
             <div class="modal-footer">
                 <button id="close-keyword-modal-footer" class="btn-secondary">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 自动发布管理弹窗 -->
+    <div id="auto-publish-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>自动发布管理</h3>
+                <button class="modal-close" id="close-auto-publish-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- 配置创建区域 -->
+                <div class="auto-publish-create-section">
+                    <h4>新建自动发布配置</h4>
+                    <div class="auto-publish-form">
+                        <div class="form-row">
+                            <label>选择话题:</label>
+                            <select id="auto-publish-topic-select" class="grow">
+                                <option value="">请选择话题</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <label>最大发布数量:</label>
+                            <input type="number" id="auto-publish-max-posts" value="-1" min="-1" placeholder="-1表示无限发布">
+                            <span class="help-text">-1表示无限发布，其他数字表示最大发布次数</span>
+                        </div>
+                        <div class="form-row">
+                            <button id="create-auto-publish-btn" class="btn-success">创建配置</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 配置列表区域 -->
+                <div class="auto-publish-list-section">
+                    <h4>现有配置</h4>
+                    <div class="auto-publish-stats">
+                        <p>配置总数：<span id="auto-publish-total-count">0</span> 个 | 
+                           激活中：<span id="auto-publish-active-count">0</span> 个</p>
+                    </div>
+                    <div id="auto-publish-list-container" class="auto-publish-list-container">
+                        <!-- 自动发布配置列表将在这里显示 -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="refresh-auto-publish" class="btn-primary">刷新列表</button>
+                <button id="close-auto-publish-modal-footer" class="btn-secondary">关闭</button>
             </div>
         </div>
     </div>

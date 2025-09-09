@@ -132,7 +132,7 @@ class ScheduledPostDAO(BaseDAO):
         super().__init__('scheduled_posts')
     
     def _get_table_fields(self) -> List[str]:
-        return ['id', 'title', 'content', 'topic_url', 'topic_id', 'circle_type', 'topic_name', 'status', 'scheduled_at', 'published_at', 'error', 'failed_at', 'created_at', 'updated_at']
+        return ['id', 'title', 'content', 'topic_url', 'topic_id', 'circle_type', 'topic_name', 'auto_publish_id', 'status', 'scheduled_at', 'published_at', 'error', 'failed_at', 'created_at', 'updated_at']
     
     def _get_json_fields(self) -> List[str]:
         return []
@@ -433,4 +433,129 @@ class KeywordDAO(BaseDAO):
             return True
         except Exception as e:
             logger.error(f"删除分组失败: {e}")
+            return False
+
+
+class AutoPublishConfigDAO(BaseDAO):
+    """自动发布配置DAO"""
+    
+    def __init__(self):
+        super().__init__('auto_publish_configs')
+    
+    def _get_table_fields(self) -> List[str]:
+        return ['id', 'topic_id', 'max_posts', 'current_posts', 'is_active', 'last_published_at', 'created_at', 'updated_at']
+    
+    def _get_json_fields(self) -> List[str]:
+        return []
+    
+    def _get_datetime_fields(self) -> List[str]:
+        return ['last_published_at', 'created_at', 'updated_at']
+    
+    def find_active(self) -> List[Dict[str, Any]]:
+        """查找所有激活的自动发布配置"""
+        return self.find_all({'is_active': 1})
+    
+    def find_by_topic_id(self, topic_id: str) -> Optional[Dict[str, Any]]:
+        """根据话题ID查找自动发布配置"""
+        result = self.find_all({'topic_id': topic_id})
+        return result[0] if result else None
+    
+    def find_publishable(self) -> List[Dict[str, Any]]:
+        """查找可发布的配置（激活且未达到最大发布数量）"""
+        sql = f"""
+        SELECT * FROM `{self.table_name}` 
+        WHERE `is_active` = 1 
+        AND (`max_posts` = -1 OR `current_posts` < `max_posts`)
+        ORDER BY `last_published_at` ASC NULLS FIRST
+        """
+        return self.db.execute_query(sql)
+    
+    def increment_posts(self, config_id: str) -> bool:
+        """增加已发布数量"""
+        try:
+            sql = f"""
+            UPDATE `{self.table_name}` 
+            SET `current_posts` = `current_posts` + 1, 
+                `last_published_at` = NOW(),
+                `updated_at` = NOW()
+            WHERE `id` = %s
+            """
+            rows_affected = self.db.execute_update(sql, (config_id,))
+            return rows_affected > 0
+        except Exception as e:
+            logger.error(f"增加发布数量失败: {e}")
+            return False
+    
+    def reset_posts(self, config_id: str) -> bool:
+        """重置已发布数量"""
+        try:
+            return self.update(config_id, {'current_posts': 0}) > 0
+        except Exception as e:
+            logger.error(f"重置发布数量失败: {e}")
+            return False
+
+
+class AIConversationDAO(BaseDAO):
+    """AI对话历史DAO"""
+    
+    def __init__(self):
+        super().__init__('ai_conversations')
+    
+    def _get_table_fields(self) -> List[str]:
+        return ['id', 'topic_id', 'messages', 'created_at', 'updated_at']
+    
+    def _get_json_fields(self) -> List[str]:
+        return ['messages']
+    
+    def _get_datetime_fields(self) -> List[str]:
+        return ['created_at', 'updated_at']
+    
+    def find_by_topic_id(self, topic_id: str) -> List[Dict[str, Any]]:
+        """根据话题ID查找对话历史"""
+        return self.find_all({'topic_id': topic_id})
+    
+    def get_latest_by_topic(self, topic_id: str) -> Optional[Dict[str, Any]]:
+        """获取话题的最新对话历史"""
+        sql = f"""
+        SELECT * FROM `{self.table_name}` 
+        WHERE `topic_id` = %s 
+        ORDER BY `created_at` DESC 
+        LIMIT 1
+        """
+        result = self.db.execute_query(sql, (topic_id,))
+        return result[0] if result else None
+    
+    def add_message(self, conversation_id: str, role: str, content: str) -> bool:
+        """为现有对话添加消息"""
+        try:
+            # 获取现有对话
+            conversation = self.find_by_id(conversation_id)
+            if not conversation:
+                return False
+            
+            # 添加新消息
+            messages = conversation.get('messages', [])
+            messages.append({
+                'role': role,
+                'content': content
+            })
+            
+            # 更新对话
+            return self.update(conversation_id, {'messages': messages}) > 0
+        except Exception as e:
+            logger.error(f"添加消息失败: {e}")
+            return False
+    
+    def create_with_messages(self, conversation_id: str, topic_id: str, messages: List[Dict[str, Any]]) -> bool:
+        """创建新对话并设置消息"""
+        try:
+            data = {
+                'id': conversation_id,
+                'topic_id': topic_id,
+                'messages': messages
+            }
+            result = self.insert(data)
+            return result is not None
+        except Exception as e:
+            logger.error(f"创建对话失败: {e}")
             return False

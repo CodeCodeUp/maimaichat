@@ -1983,3 +1983,289 @@ textarea {
     color: var(--text-muted);
     opacity: 1;
 }
+
+/* ===== 自动发布管理样式 ===== */
+
+/* 自动发布按钮样式 */
+.btn-info {
+    background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+    color: white;
+    border: none;
+    transition: all 0.3s ease;
+}
+
+.btn-info:hover {
+    background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(14, 165, 233, 0.3);
+}
+
+/* 自动发布表单样式 */
+.auto-publish-create-section {
+    background: var(--bg-surface-secondary);
+    border-radius: var(--border-radius);
+    padding: 24px;
+    margin-bottom: 32px;
+    border: 1px solid var(--border-color);
+}
+
+.auto-publish-form .form-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+    gap: 16px;
+}
+
+.auto-publish-form .form-row label {
+    min-width: 120px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.auto-publish-form .form-row input,
+.auto-publish-form .form-row select {
+    flex: 1;
+    padding: 12px 16px;
+    border: 2px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+}
+
+.auto-publish-form .form-row input:focus,
+.auto-publish-form .form-row select:focus {
+    outline: none;
+    border-color: var(--primary-500);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.auto-publish-form .help-text {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-left: 8px;
+}
+
+/* 自动发布统计样式 */
+.auto-publish-stats {
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    border-radius: var(--border-radius-sm);
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    border-left: 4px solid var(--primary-500);
+}
+
+.auto-publish-stats p {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+}
+
+.auto-publish-stats span {
+    font-weight: 700;
+    color: var(--primary-600);
+}
+
+/* 自动发布配置列表样式 */
+.auto-publish-list-container {
+    max-height: 500px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    background: var(--bg-surface);
+}
+
+.auto-publish-config-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+}
+
+.auto-publish-config-item:last-child {
+    border-bottom: none;
+}
+
+.auto-publish-config-item:hover {
+    background: var(--bg-surface-secondary);
+}
+
+.auto-publish-config-info {
+    flex: 1;
+}
+
+.auto-publish-config-info .config-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+}
+
+.auto-publish-config-info .config-details {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.auto-publish-config-info .config-detail-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.auto-publish-config-info .config-detail-label {
+    font-weight: 500;
+}
+
+.auto-publish-config-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+/* 自动发布状态指示器 */
+.auto-publish-status {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.auto-publish-status.active {
+    background: var(--success-100);
+    color: var(--success-600);
+    border: 1px solid var(--success-200);
+}
+
+.auto-publish-status.inactive {
+    background: var(--gray-100);
+    color: var(--gray-600);
+    border: 1px solid var(--gray-200);
+}
+
+/* 进度条样式 */
+.auto-publish-progress {
+    margin-top: 8px;
+}
+
+.auto-publish-progress-bar {
+    width: 100%;
+    height: 6px;
+    background: var(--gray-200);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.auto-publish-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary-500) 0%, var(--primary-600) 100%);
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+.auto-publish-progress-text {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+    text-align: center;
+}
+
+/* 自动发布操作按钮 */
+.auto-publish-config-actions .btn {
+    padding: 8px 16px;
+    font-size: 0.85rem;
+    min-width: auto;
+}
+
+.auto-publish-config-actions .btn-generate {
+    background: var(--primary-500);
+    color: white;
+}
+
+.auto-publish-config-actions .btn-generate:hover {
+    background: var(--primary-600);
+}
+
+.auto-publish-config-actions .btn-toggle {
+    background: var(--warning-500);
+    color: white;
+}
+
+.auto-publish-config-actions .btn-toggle:hover {
+    background: var(--warning-600);
+}
+
+.auto-publish-config-actions .btn-toggle.active {
+    background: var(--success-500);
+}
+
+.auto-publish-config-actions .btn-toggle.active:hover {
+    background: var(--success-600);
+}
+
+.auto-publish-config-actions .btn-reset {
+    background: var(--gray-500);
+    color: white;
+}
+
+.auto-publish-config-actions .btn-reset:hover {
+    background: var(--gray-600);
+}
+
+/* 空状态样式 */
+.auto-publish-empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+}
+
+.auto-publish-empty-state .empty-icon {
+    font-size: 3rem;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.auto-publish-empty-state .empty-text {
+    font-size: 1.1rem;
+    margin-bottom: 8px;
+}
+
+.auto-publish-empty-state .empty-hint {
+    font-size: 0.9rem;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .auto-publish-config-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+    }
+    
+    .auto-publish-config-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
+    
+    .auto-publish-form .form-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .auto-publish-form .form-row label {
+        min-width: auto;
+    }
+    
+    .auto-publish-config-info .config-details {
+        flex-direction: column;
+        gap: 8px;
+    }
+}

@@ -58,7 +58,8 @@ def create_database_stores():
             'scheduled_posts_store': ScheduledPostsStoreDB(),
             'topic_store': TopicStoreDB(),
             'prompt_store': PromptStoreDB(),
-            'group_keywords_store': GroupKeywordsStoreDB()
+            'group_keywords_store': GroupKeywordsStoreDB(),
+            'auto_publish_store': AutoPublishStoreDB()
         }
         
         # 加载数据（兼容原接口）

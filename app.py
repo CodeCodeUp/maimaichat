@@ -38,6 +38,7 @@ scheduled_posts_store = db_stores['scheduled_posts_store']
 prompt_store = db_stores['prompt_store']
 group_keywords_store = db_stores['group_keywords_store']
 scheduled_requests_store = db_stores['scheduled_requests_store']
+auto_publish_store = db_stores['auto_publish_store']
 
 # 调试：检查topic_store实例
 logger.info(f"应用启动时 topic_store 类型: {type(topic_store)}")
@@ -99,8 +100,33 @@ def generate_content():
             return jsonify({'success': False, 'error': 'messages格式不正确'}), 400
         
         use_main_model = data.get('use_main_model', True)
+        topic_id = data.get('topic_id')  # 新增：话题ID，用于保存对话历史
+        save_conversation = data.get('save_conversation', False)  # 新增：是否保存对话历史
+        
         logger.info("开始对话生成，消息数：%d", len(messages))
         result = ai_generator.chat(messages=messages, use_main_model=use_main_model)
+
+        # 如果生成成功且需要保存对话历史
+        if result.get('success') and save_conversation and topic_id:
+            try:
+                # 构建完整的对话历史（包含AI回复）
+                complete_messages = messages.copy()
+                if 'content' in result:
+                    complete_messages.append({
+                        'role': 'assistant',
+                        'content': result['content']
+                    })
+                
+                # 保存对话历史
+                conversation_id = auto_publish_store.save_conversation(topic_id, complete_messages)
+                if conversation_id:
+                    result['conversation_id'] = conversation_id
+                    logger.info(f"已保存对话历史: {conversation_id}")
+                else:
+                    logger.warning("保存对话历史失败")
+            except Exception as e:
+                logger.error(f"保存对话历史异常: {e}")
+                # 不影响主要功能，只记录错误
 
         return jsonify(result)
 
@@ -565,6 +591,287 @@ def reschedule_post(post_id):
     except Exception as e:
         logger.error(f"重新安排发布时间异常：{str(e)}")
         return jsonify({'success': False, 'error': f'重新安排发布时间时发生错误：{str(e)}'}), 500
+
+
+# ===== 自动发布管理API =====
+
+@app.route('/api/auto-publish', methods=['GET'])
+def get_auto_publish_configs():
+    """获取所有自动发布配置"""
+    try:
+        configs = auto_publish_store.get_all_configs()
+        
+        # 为每个配置添加话题信息
+        for config in configs:
+            topic_id = config.get('topic_id')
+            if topic_id:
+                topic_data = topic_store.get_topic(topic_id)
+                config['topic_name'] = topic_data.get('name', '') if topic_data else ''
+                config['topic_group'] = topic_data.get('group_name', '') if topic_data else ''
+        
+        return jsonify({
+            'success': True,
+            'data': configs
+        })
+    except Exception as e:
+        logger.error(f"获取自动发布配置失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/auto-publish', methods=['POST'])
+def create_auto_publish_config():
+    """创建自动发布配置并立即启动自动循环"""
+    try:
+        data = request.get_json()
+        topic_id = data.get('topic_id')
+        max_posts = data.get('max_posts', -1)
+        
+        if not topic_id:
+            return jsonify({'success': False, 'error': '话题ID不能为空'}), 400
+        
+        # 检查话题是否存在
+        topic_data = topic_store.get_topic(topic_id)
+        if not topic_data:
+            return jsonify({'success': False, 'error': '话题不存在'}), 404
+        
+        # 检查是否已存在该话题的配置
+        existing_config = auto_publish_store.get_config_by_topic(topic_id)
+        if existing_config:
+            return jsonify({'success': False, 'error': '该话题已配置自动发布'}), 400
+        
+        config_id = auto_publish_store.create_config(topic_id, max_posts)
+        if config_id:
+            config = auto_publish_store.get_config(config_id)
+            config['topic_name'] = topic_data.get('name', '')
+            config['topic_group'] = topic_data.get('group_name', '')
+            
+            # 立即启动自动发布循环
+            from modules.auto_publish.generator import AutoPublishCycleGenerator
+            cycle_generator = AutoPublishCycleGenerator()
+            cycle_started = cycle_generator.start_auto_publish_cycle(config_id)
+            
+            message = '自动发布配置创建成功'
+            if cycle_started:
+                message += '，已立即生成第一篇内容并安排发布'
+            else:
+                message += '，但启动自动循环失败，请检查日志'
+            
+            return jsonify({
+                'success': True,
+                'data': config,
+                'message': message,
+                'cycle_started': cycle_started
+            })
+        else:
+            return jsonify({'success': False, 'error': '创建配置失败'}), 500
+            
+    except Exception as e:
+        logger.error(f"创建自动发布配置失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/auto-publish/<config_id>', methods=['PUT'])
+def update_auto_publish_config(config_id):
+    """更新自动发布配置"""
+    try:
+        data = request.get_json()
+        
+        # 验证配置是否存在
+        config = auto_publish_store.get_config(config_id)
+        if not config:
+            return jsonify({'success': False, 'error': '配置不存在'}), 404
+        
+        # 准备更新数据
+        updates = {}
+        if 'max_posts' in data:
+            updates['max_posts'] = data['max_posts']
+        if 'is_active' in data:
+            updates['is_active'] = int(data['is_active'])
+        
+        if not updates:
+            return jsonify({'success': False, 'error': '没有提供更新数据'}), 400
+        
+        success = auto_publish_store.update_config(config_id, updates)
+        if success:
+            updated_config = auto_publish_store.get_config(config_id)
+            
+            # 添加话题信息
+            topic_id = updated_config.get('topic_id')
+            if topic_id:
+                topic_data = topic_store.get_topic(topic_id)
+                updated_config['topic_name'] = topic_data.get('name', '') if topic_data else ''
+                updated_config['topic_group'] = topic_data.get('group_name', '') if topic_data else ''
+            
+            return jsonify({
+                'success': True,
+                'data': updated_config,
+                'message': '配置更新成功'
+            })
+        else:
+            return jsonify({'success': False, 'error': '更新配置失败'}), 500
+            
+    except Exception as e:
+        logger.error(f"更新自动发布配置失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/auto-publish/<config_id>', methods=['DELETE'])
+def delete_auto_publish_config(config_id):
+    """删除自动发布配置"""
+    try:
+        # 验证配置是否存在
+        config = auto_publish_store.get_config(config_id)
+        if not config:
+            return jsonify({'success': False, 'error': '配置不存在'}), 404
+        
+        success = auto_publish_store.delete_config(config_id)
+        if success:
+            return jsonify({
+                'success': True,
+                'message': '配置删除成功'
+            })
+        else:
+            return jsonify({'success': False, 'error': '删除配置失败'}), 500
+            
+    except Exception as e:
+        logger.error(f"删除自动发布配置失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/auto-publish/<config_id>/toggle', methods=['POST'])
+def toggle_auto_publish_config(config_id):
+    """切换自动发布配置状态"""
+    try:
+        data = request.get_json()
+        is_active = data.get('is_active', True)
+        
+        # 验证配置是否存在
+        config = auto_publish_store.get_config(config_id)
+        if not config:
+            return jsonify({'success': False, 'error': '配置不存在'}), 404
+        
+        success = auto_publish_store.toggle_config(config_id, is_active)
+        if success:
+            updated_config = auto_publish_store.get_config(config_id)
+            
+            # 添加话题信息
+            topic_id = updated_config.get('topic_id')
+            if topic_id:
+                topic_data = topic_store.get_topic(topic_id)
+                updated_config['topic_name'] = topic_data.get('name', '') if topic_data else ''
+                updated_config['topic_group'] = topic_data.get('group_name', '') if topic_data else ''
+            
+            return jsonify({
+                'success': True,
+                'data': updated_config,
+                'message': f'配置已{"激活" if is_active else "停用"}'
+            })
+        else:
+            return jsonify({'success': False, 'error': '切换配置状态失败'}), 500
+            
+    except Exception as e:
+        logger.error(f"切换自动发布配置状态失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/auto-publish/<config_id>/reset', methods=['POST'])
+def reset_auto_publish_posts(config_id):
+    """重置自动发布配置的发布数量"""
+    try:
+        # 验证配置是否存在
+        config = auto_publish_store.get_config(config_id)
+        if not config:
+            return jsonify({'success': False, 'error': '配置不存在'}), 404
+        
+        success = auto_publish_store.reset_posts(config_id)
+        if success:
+            updated_config = auto_publish_store.get_config(config_id)
+            
+            # 添加话题信息
+            topic_id = updated_config.get('topic_id')
+            if topic_id:
+                topic_data = topic_store.get_topic(topic_id)
+                updated_config['topic_name'] = topic_data.get('name', '') if topic_data else ''
+                updated_config['topic_group'] = topic_data.get('group_name', '') if topic_data else ''
+            
+            return jsonify({
+                'success': True,
+                'data': updated_config,
+                'message': '发布数量已重置'
+            })
+        else:
+            return jsonify({'success': False, 'error': '重置发布数量失败'}), 500
+            
+    except Exception as e:
+        logger.error(f"重置自动发布发布数量失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/auto-publish/publishable', methods=['GET'])
+def get_publishable_configs():
+    """获取可发布的自动发布配置"""
+    try:
+        configs = auto_publish_store.get_publishable_configs()
+        
+        # 为每个配置添加话题信息
+        for config in configs:
+            topic_id = config.get('topic_id')
+            if topic_id:
+                topic_data = topic_store.get_topic(topic_id)
+                config['topic_name'] = topic_data.get('name', '') if topic_data else ''
+                config['topic_group'] = topic_data.get('group_name', '') if topic_data else ''
+        
+        return jsonify({
+            'success': True,
+            'data': configs
+        })
+    except Exception as e:
+        logger.error(f"获取可发布配置失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/auto-publish/conversation/<topic_id>', methods=['GET'])
+def get_conversation_history(topic_id):
+    """获取话题的AI对话历史"""
+    try:
+        conversations = auto_publish_store.get_conversation_history(topic_id)
+        return jsonify({
+            'success': True,
+            'data': conversations
+        })
+    except Exception as e:
+        logger.error(f"获取对话历史失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/auto-publish/conversation', methods=['POST'])
+def save_conversation():
+    """保存AI对话历史"""
+    try:
+        data = request.get_json()
+        topic_id = data.get('topic_id')
+        messages = data.get('messages', [])
+        
+        if not topic_id:
+            return jsonify({'success': False, 'error': '话题ID不能为空'}), 400
+        
+        if not messages:
+            return jsonify({'success': False, 'error': '对话消息不能为空'}), 400
+        
+        conversation_id = auto_publish_store.save_conversation(topic_id, messages)
+        if conversation_id:
+            return jsonify({
+                'success': True,
+                'data': {'conversation_id': conversation_id},
+                'message': '对话历史保存成功'
+            })
+        else:
+            return jsonify({'success': False, 'error': '保存对话历史失败'}), 500
+            
+    except Exception as e:
+        logger.error(f"保存对话历史失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 
 # ===== AI配置管理API =====

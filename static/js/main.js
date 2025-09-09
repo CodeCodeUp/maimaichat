@@ -127,6 +127,19 @@ class MaimaiPublisher {
         this.refreshAiConfigsBtn = document.getElementById('refresh-ai-configs');
         this.testAllConfigsBtn = document.getElementById('test-all-configs');
         
+        // 自动发布管理
+        this.manageAutoPublishBtn = document.getElementById('manage-auto-publish');
+        this.autoPublishModal = document.getElementById('auto-publish-modal');
+        this.closeAutoPublishModalBtn = document.getElementById('close-auto-publish-modal');
+        this.closeAutoPublishModalFooterBtn = document.getElementById('close-auto-publish-modal-footer');
+        this.autoPublishTopicSelect = document.getElementById('auto-publish-topic-select');
+        this.autoPublishMaxPostsInput = document.getElementById('auto-publish-max-posts');
+        this.createAutoPublishBtn = document.getElementById('create-auto-publish-btn');
+        this.refreshAutoPublishBtn = document.getElementById('refresh-auto-publish');
+        this.autoPublishListContainer = document.getElementById('auto-publish-list-container');
+        this.autoPublishTotalCount = document.getElementById('auto-publish-total-count');
+        this.autoPublishActiveCount = document.getElementById('auto-publish-active-count');
+        
         // AI配置表单
         this.newAiNameInput = document.getElementById('new-ai-name');
         this.newAiDescriptionInput = document.getElementById('new-ai-description');
@@ -245,6 +258,13 @@ class MaimaiPublisher {
         this.addAiConfigBtn?.addEventListener('click', () => this.addAiConfig());
         this.clearAiFormBtn?.addEventListener('click', () => this.clearAiForm());
         
+        // 自动发布管理
+        this.manageAutoPublishBtn?.addEventListener('click', () => this.openAutoPublishModal());
+        this.closeAutoPublishModalBtn?.addEventListener('click', () => this.closeAutoPublishModal());
+        this.closeAutoPublishModalFooterBtn?.addEventListener('click', () => this.closeAutoPublishModal());
+        this.createAutoPublishBtn?.addEventListener('click', () => this.createAutoPublishConfig());
+        this.refreshAutoPublishBtn?.addEventListener('click', () => this.loadAutoPublishConfigs());
+        
         // 点击弹窗外部关闭
         this.promptModal?.addEventListener('click', (e) => {
             if (e.target === this.promptModal) {
@@ -255,6 +275,12 @@ class MaimaiPublisher {
         this.aiConfigModal?.addEventListener('click', (e) => {
             if (e.target === this.aiConfigModal) {
                 this.closeAiConfigModal();
+            }
+        });
+        
+        this.autoPublishModal?.addEventListener('click', (e) => {
+            if (e.target === this.autoPublishModal) {
+                this.closeAutoPublishModal();
             }
         });
 
@@ -287,7 +313,7 @@ class MaimaiPublisher {
         
         buttons.forEach(button => {
             if (button) {
-                this.setButtonLoading(button, false);
+                this.setButtonLoading(button, 'error');
             }
         });
     }
@@ -550,18 +576,23 @@ class MaimaiPublisher {
 
         this.addUserMessage(text);
         this.chatInput.value = '';
-        this.setButtonLoading(this.sendMsgBtn, true);
+        this.setButtonLoading(this.sendMsgBtn, 'success');
         
         const retryInfo = this.jsonRetryCount > 0 ? ` (重试 ${this.jsonRetryCount}/${this.maxJsonRetry})` : '';
         this.updateStatus(`正在生成回复...${retryInfo}`, 'info');
 
         try {
+            // 检查是否需要保存对话历史（当选择的话题有自动发布配置时）
+            const shouldSaveConversation = await this.shouldSaveConversationForTopic(this.selectedTopicId);
+            
             const response = await fetch('/api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     messages: this.chatHistory,
-                    use_main_model: true
+                    use_main_model: true,
+                    topic_id: this.selectedTopicId || undefined,
+                    save_conversation: shouldSaveConversation
                 }),
                 signal: AbortSignal.timeout(180000) // 3分钟超时
             });
@@ -571,14 +602,41 @@ class MaimaiPublisher {
                 this.addAssistantMessage(result.content);
                 // 尝试解析JSON格式并自动回填，如果失败可能触发重试
                 await this.processGeneratedContent(result.content);
-                this.updateStatus(`生成成功，使用模型: ${result.model_used || 'unknown'}`, 'success');
+                
+                let statusMessage = `生成成功，使用模型: ${result.model_used || 'unknown'}`;
+                if (result.conversation_id) {
+                    statusMessage += ` | 已保存对话历史`;
+                }
+                this.updateStatus(statusMessage, 'success');
             } else {
                 this.updateStatus(`生成失败: ${result.error}`, 'error');
             }
         } catch (error) {
             this.updateStatus(`生成异常: ${error.message}`, 'error');
         } finally {
-            this.setButtonLoading(this.sendMsgBtn, false);
+            this.setButtonLoading(this.sendMsgBtn, 'error');
+        }
+    }
+
+    async shouldSaveConversationForTopic(topicId) {
+        if (!topicId) {
+            return false;
+        }
+        
+        try {
+            // 检查指定话题是否有自动发布配置
+            const response = await fetch('/api/auto-publish');
+            const result = await response.json();
+            
+            if (result.success) {
+                // 查找该话题的配置
+                const hasConfig = result.data.some(config => config.topic_id === topicId);
+                return hasConfig;
+            }
+            return false;
+        } catch (error) {
+            console.error('检查自动发布配置失败:', error);
+            return false;
         }
     }
 
@@ -797,7 +855,7 @@ class MaimaiPublisher {
 
     // 自动重试生成
     async autoRetryGeneration() {
-        this.setButtonLoading(this.sendMsgBtn, true);
+        this.setButtonLoading(this.sendMsgBtn, 'success');
         
         const retryInfo = ` (重试 ${this.jsonRetryCount}/${this.maxJsonRetry})`;
         this.updateStatus(`正在生成回复...${retryInfo}`, 'info');
@@ -827,7 +885,7 @@ class MaimaiPublisher {
             this.updateStatus(`生成异常: ${error.message}`, 'error');
             this.isRetrying = false;
         } finally {
-            this.setButtonLoading(this.sendMsgBtn, false);
+            this.setButtonLoading(this.sendMsgBtn, 'error');
         }
     }
 
@@ -904,7 +962,7 @@ class MaimaiPublisher {
             finalContent = `${this.selectedKeyword} ${content}`;
         }
 
-        this.setButtonLoading(this.publishBtn, true);
+        this.setButtonLoading(this.publishBtn, 'success');
         this.updateStatus('正在发布到脉脉...', 'info');
 
         try {
@@ -942,7 +1000,7 @@ class MaimaiPublisher {
         } catch (error) {
             this.updateStatus(`发布异常: ${error.message}`, 'error');
         } finally {
-            this.setButtonLoading(this.publishBtn, false);
+            this.setButtonLoading(this.publishBtn, 'error');
         }
     }
     
@@ -968,7 +1026,7 @@ class MaimaiPublisher {
             return;
         }
 
-        this.setButtonLoading(this.publishBtn, true);
+        this.setButtonLoading(this.publishBtn, 'success');
         this.updateStatus(`开始批量发布 ${validPosts.length} 篇文章...`, 'info');
 
         const topicUrl = this.topicUrlInput?.value.trim();
@@ -1038,7 +1096,7 @@ class MaimaiPublisher {
         } catch (error) {
             this.updateStatus(`批量发布过程异常: ${error.message}`, 'error');
         } finally {
-            this.setButtonLoading(this.publishBtn, false);
+            this.setButtonLoading(this.publishBtn, 'error');
         }
     }
 
@@ -1049,7 +1107,7 @@ class MaimaiPublisher {
             return;
         }
 
-        this.setButtonLoading(this.getTopicInfoBtn, true);
+        this.setButtonLoading(this.getTopicInfoBtn, 'success');
         this.updateStatus('正在获取话题信息...', 'info');
 
         try {
@@ -1076,7 +1134,7 @@ class MaimaiPublisher {
         } catch (error) {
             this.updateStatus(`获取话题信息异常: ${error.message}`, 'error');
         } finally {
-            this.setButtonLoading(this.getTopicInfoBtn, false);
+            this.setButtonLoading(this.getTopicInfoBtn, 'error');
         }
     }
 
@@ -1910,7 +1968,7 @@ class MaimaiPublisher {
                 });
             }
 
-            this.setButtonLoading(this.batchImportBtn, true);
+            this.setButtonLoading(this.batchImportBtn, 'success');
             this.updateStatus(`正在批量导入 ${topicsData.length} 个话题...`, 'info');
 
             const response = await fetch('/api/topics/batch', {
@@ -1956,7 +2014,7 @@ class MaimaiPublisher {
                 this.updateStatus(`批量导入异常: ${parseError.message}`, 'error');
             }
         } finally {
-            this.setButtonLoading(this.batchImportBtn, false);
+            this.setButtonLoading(this.batchImportBtn, 'error');
         }
     }
 
@@ -2131,7 +2189,7 @@ class MaimaiPublisher {
             finalContent = `${this.selectedKeyword} ${content}`;
         }
 
-        this.setButtonLoading(this.schedulePublishBtn, true);
+        this.setButtonLoading(this.schedulePublishBtn, 'success');
         this.updateStatus('正在添加到定时发布队列...', 'info');
 
         try {
@@ -2168,7 +2226,7 @@ class MaimaiPublisher {
         } catch (error) {
             this.updateStatus(`定时发布添加异常: ${error.message}`, 'error');
         } finally {
-            this.setButtonLoading(this.schedulePublishBtn, false);
+            this.setButtonLoading(this.schedulePublishBtn, 'error');
         }
     }
     
@@ -2194,7 +2252,7 @@ class MaimaiPublisher {
             return;
         }
 
-        this.setButtonLoading(this.schedulePublishBtn, true);
+        this.setButtonLoading(this.schedulePublishBtn, 'success');
         this.updateStatus(`开始添加 ${validPosts.length} 篇文章到定时发布队列...`, 'info');
 
         const topicUrl = this.topicUrlInput?.value.trim();
@@ -2269,7 +2327,7 @@ class MaimaiPublisher {
         } catch (error) {
             this.updateStatus(`批量定时发布过程异常: ${error.message}`, 'error');
         } finally {
-            this.setButtonLoading(this.schedulePublishBtn, false);
+            this.setButtonLoading(this.schedulePublishBtn, 'error');
         }
     }
 
@@ -2730,7 +2788,7 @@ class MaimaiPublisher {
                 return;
             }
             
-            this.setButtonLoading(this.addAiConfigBtn, true);
+            this.setButtonLoading(this.addAiConfigBtn, 'success');
             
             const response = await fetch('/api/ai-configs', {
                 method: 'POST',
@@ -2752,7 +2810,7 @@ class MaimaiPublisher {
             console.error('添加AI配置异常:', error);
             this.updateStatus(`添加AI配置异常: ${error.message}`, 'error');
         } finally {
-            this.setButtonLoading(this.addAiConfigBtn, false);
+            this.setButtonLoading(this.addAiConfigBtn, 'error');
         }
     }
     
@@ -2800,6 +2858,296 @@ class MaimaiPublisher {
     closeAiConfigModal() {
         if (this.aiConfigModal) {
             this.aiConfigModal.style.display = 'none';
+        }
+    }
+
+    // ===== 自动发布管理 =====
+
+    async openAutoPublishModal() {
+        if (this.autoPublishModal) {
+            this.autoPublishModal.style.display = 'block';
+            await this.loadAutoPublishTopics();
+            await this.loadAutoPublishConfigs();
+        }
+    }
+
+    closeAutoPublishModal() {
+        if (this.autoPublishModal) {
+            this.autoPublishModal.style.display = 'none';
+        }
+    }
+
+    async loadAutoPublishTopics() {
+        try {
+            // 重用现有的话题加载逻辑
+            if (this.topics.length === 0) {
+                await this.loadTopics();
+            }
+            
+            // 填充话题选择下拉框
+            if (this.autoPublishTopicSelect) {
+                this.autoPublishTopicSelect.innerHTML = '<option value="">请选择话题</option>';
+                
+                // 按分组组织话题
+                const groupedTopics = {};
+                this.topics.forEach(topic => {
+                    const groupName = topic.group_name || '未分组';
+                    if (!groupedTopics[groupName]) {
+                        groupedTopics[groupName] = [];
+                    }
+                    groupedTopics[groupName].push(topic);
+                });
+                
+                // 渲染分组选项
+                Object.keys(groupedTopics).sort().forEach(groupName => {
+                    const optgroup = document.createElement('optgroup');
+                    optgroup.label = groupName;
+                    
+                    groupedTopics[groupName].forEach(topic => {
+                        const option = document.createElement('option');
+                        option.value = topic.id;
+                        option.textContent = `${topic.name} (${topic.id})`;
+                        optgroup.appendChild(option);
+                    });
+                    
+                    this.autoPublishTopicSelect.appendChild(optgroup);
+                });
+            }
+        } catch (error) {
+            console.error('加载自动发布话题失败:', error);
+            this.updateStatus('加载话题失败: ' + error.message, 'error');
+        }
+    }
+
+    async loadAutoPublishConfigs() {
+        try {
+            const response = await fetch('/api/auto-publish');
+            const result = await response.json();
+            
+            if (result.success) {
+                this.renderAutoPublishConfigs(result.data);
+                this.updateAutoPublishStats(result.data);
+            } else {
+                this.updateStatus('加载自动发布配置失败: ' + result.error, 'error');
+            }
+        } catch (error) {
+            console.error('加载自动发布配置失败:', error);
+            this.updateStatus('加载自动发布配置失败: ' + error.message, 'error');
+        }
+    }
+
+    renderAutoPublishConfigs(configs) {
+        if (!this.autoPublishListContainer) return;
+        
+        if (configs.length === 0) {
+            this.autoPublishListContainer.innerHTML = `
+                <div class="auto-publish-empty-state">
+                    <div class="empty-icon">🤖</div>
+                    <div class="empty-text">暂无自动发布配置</div>
+                    <div class="empty-hint">创建第一个自动发布配置开始使用</div>
+                </div>
+            `;
+            return;
+        }
+        
+        const html = configs.map(config => {
+            const isActive = config.is_active;
+            const progress = config.max_posts === -1 ? 0 : 
+                            (config.current_posts / config.max_posts) * 100;
+            const progressText = config.max_posts === -1 ? 
+                                `已发布: ${config.current_posts} 篇 (无限制)` :
+                                `已发布: ${config.current_posts}/${config.max_posts} 篇`;
+            
+            return `
+                <div class="auto-publish-config-item">
+                    <div class="auto-publish-config-info">
+                        <div class="config-title">${config.topic_name || '未知话题'}</div>
+                        <div class="config-details">
+                            <div class="config-detail-item">
+                                <span class="config-detail-label">话题ID:</span>
+                                <span>${config.topic_id}</span>
+                            </div>
+                            <div class="config-detail-item">
+                                <span class="config-detail-label">分组:</span>
+                                <span>${config.topic_group || '未分组'}</span>
+                            </div>
+                            <div class="config-detail-item">
+                                <span class="config-detail-label">状态:</span>
+                                <span class="auto-publish-status ${isActive ? 'active' : 'inactive'}">
+                                    ${isActive ? '激活' : '停用'}
+                                </span>
+                            </div>
+                            <div class="config-detail-item">
+                                <span class="config-detail-label">最后发布:</span>
+                                <span>${config.last_published_at ? new Date(config.last_published_at).toLocaleString() : '从未发布'}</span>
+                            </div>
+                        </div>
+                        ${config.max_posts !== -1 ? `
+                            <div class="auto-publish-progress">
+                                <div class="auto-publish-progress-bar">
+                                    <div class="auto-publish-progress-fill" style="width: ${Math.min(progress, 100)}%"></div>
+                                </div>
+                                <div class="auto-publish-progress-text">${progressText}</div>
+                            </div>
+                        ` : `
+                            <div class="auto-publish-progress">
+                                <div class="auto-publish-progress-text">${progressText}</div>
+                            </div>
+                        `}
+                    </div>
+                    <div class="auto-publish-config-actions">
+                        <button class="btn btn-toggle ${isActive ? 'active' : ''}" 
+                                onclick="app.toggleAutoPublishConfig('${config.id}', ${!isActive})">
+                            ${isActive ? '停用' : '激活'}
+                        </button>
+                        <button class="btn btn-reset" 
+                                onclick="app.resetAutoPublishPosts('${config.id}')"
+                                title="重置发布数量">
+                            重置
+                        </button>
+                        <button class="btn btn-danger" 
+                                onclick="app.deleteAutoPublishConfig('${config.id}')"
+                                title="删除配置">
+                            删除
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        this.autoPublishListContainer.innerHTML = html;
+    }
+
+    updateAutoPublishStats(configs) {
+        const totalCount = configs.length;
+        const activeCount = configs.filter(config => config.is_active).length;
+        
+        if (this.autoPublishTotalCount) {
+            this.autoPublishTotalCount.textContent = totalCount;
+        }
+        if (this.autoPublishActiveCount) {
+            this.autoPublishActiveCount.textContent = activeCount;
+        }
+    }
+
+    async createAutoPublishConfig() {
+        try {
+            const topicId = this.autoPublishTopicSelect?.value;
+            const maxPosts = parseInt(this.autoPublishMaxPostsInput?.value || '-1');
+            
+            if (!topicId) {
+                this.updateStatus('请选择话题', 'error');
+                return;
+            }
+            
+            const data = {
+                topic_id: topicId,
+                max_posts: maxPosts
+            };
+            
+            const response = await fetch('/api/auto-publish', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // 显示详细的成功信息
+                let message = result.message;
+                if (result.cycle_started) {
+                    message += ' - 自动循环已启动！';
+                } else {
+                    message += ' - 警告：自动循环启动失败，请检查日志';
+                }
+                this.updateStatus(message, result.cycle_started ? 'success' : 'warning');
+                
+                // 重置表单
+                if (this.autoPublishTopicSelect) this.autoPublishTopicSelect.value = '';
+                if (this.autoPublishMaxPostsInput) this.autoPublishMaxPostsInput.value = '-1';
+                // 重新加载配置列表
+                await this.loadAutoPublishConfigs();
+            } else {
+                this.updateStatus('创建配置失败: ' + result.error, 'error');
+            }
+        } catch (error) {
+            console.error('创建自动发布配置失败:', error);
+            this.updateStatus('创建配置失败: ' + error.message, 'error');
+        }
+    }
+
+    async toggleAutoPublishConfig(configId, isActive) {
+        try {
+            const response = await fetch(`/api/auto-publish/${configId}/toggle`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ is_active: isActive })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.updateStatus(result.message, 'success');
+                await this.loadAutoPublishConfigs();
+            } else {
+                this.updateStatus('切换配置状态失败: ' + result.error, 'error');
+            }
+        } catch (error) {
+            console.error('切换自动发布配置状态失败:', error);
+            this.updateStatus('切换配置状态失败: ' + error.message, 'error');
+        }
+    }
+
+    async resetAutoPublishPosts(configId) {
+        if (!confirm('确定要重置该配置的发布数量吗？')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/auto-publish/${configId}/reset`, {
+                method: 'POST'
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.updateStatus(result.message, 'success');
+                await this.loadAutoPublishConfigs();
+            } else {
+                this.updateStatus('重置发布数量失败: ' + result.error, 'error');
+            }
+        } catch (error) {
+            console.error('重置自动发布发布数量失败:', error);
+            this.updateStatus('重置发布数量失败: ' + error.message, 'error');
+        }
+    }
+
+    async deleteAutoPublishConfig(configId) {
+        if (!confirm('确定要删除这个自动发布配置吗？删除后不可恢复。')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/auto-publish/${configId}`, {
+                method: 'DELETE'
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.updateStatus(result.message, 'success');
+                await this.loadAutoPublishConfigs();
+            } else {
+                this.updateStatus('删除配置失败: ' + result.error, 'error');
+            }
+        } catch (error) {
+            console.error('删除自动发布配置失败:', error);
+            this.updateStatus('删除配置失败: ' + error.message, 'error');
         }
     }
 }

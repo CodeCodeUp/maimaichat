@@ -28,15 +28,23 @@ class ScheduledPostsStoreDB:
         pass
     
     def add_post(self, title: str, content: str, topic_url: str = None, 
-                 topic_id: str = None, circle_type: str = None, topic_name: str = None) -> str:
+                 topic_id: str = None, circle_type: str = None, topic_name: str = None, 
+                 auto_publish_id: str = None) -> str:
         """添加定时发布任务，基于最后一篇待发布时间计算发布时间"""
         post_id = str(uuid.uuid4())
         
+        # 根据是否为自动发布，调整时间间隔计算
+        if auto_publish_id:
+            # 自动发布：30-60分钟随机间隔
+            delay_minutes = random.randint(30, 60)
+            logger.info(f"自动发布任务，随机延迟：{delay_minutes}分钟")
+        else:
+            # 手动发布：5-20分钟间隔
+            delay_minutes = random.randint(5, 20)
+            logger.info(f"手动发布任务，随机延迟：{delay_minutes}分钟")
+        
         # 获取当前所有待发布任务的最晚发布时间
         latest_scheduled_time = self._get_latest_scheduled_time()
-        
-        # 随机生成5-20分钟的延迟
-        delay_minutes = random.randint(5, 20)
         
         if latest_scheduled_time:
             # 如果有待发布任务，从最晚的发布时间再加上延迟
@@ -55,6 +63,7 @@ class ScheduledPostsStoreDB:
             "topic_id": topic_id,
             "circle_type": circle_type,
             "topic_name": topic_name,
+            "auto_publish_id": auto_publish_id,
             "scheduled_at": scheduled_at,
             "status": "pending"
         }
@@ -99,18 +108,47 @@ class ScheduledPostsStoreDB:
             return None
     
     def mark_as_published(self, post_id: str) -> bool:
-        """标记任务为已发布并删除"""
+        """标记任务为已发布并删除，如果是自动发布任务则触发下一轮循环"""
         try:
             post = self.dao.find_by_id(post_id)
             if post:
+                # 检查是否是自动发布任务
+                auto_publish_id = post.get('auto_publish_id')
+                
                 result = self.dao.mark_as_published(post_id)
                 if result:
                     logger.info(f"任务 {post['title']} 发布成功，已删除")
+                    
+                    # 如果是自动发布任务，触发下一轮生成
+                    if auto_publish_id:
+                        self._trigger_next_auto_publish_cycle(auto_publish_id)
+                
                 return result
             return False
         except Exception as e:
             logger.error(f"标记任务为已发布失败: {e}")
             return False
+    
+    def _trigger_next_auto_publish_cycle(self, auto_publish_id: str):
+        """触发下一轮自动发布循环"""
+        try:
+            from modules.auto_publish.generator import AutoPublishCycleGenerator
+            cycle_generator = AutoPublishCycleGenerator()
+            
+            # 先增加已发布数量
+            from modules.database.dao import AutoPublishConfigDAO
+            auto_config_dao = AutoPublishConfigDAO()
+            auto_config_dao.increment_posts(auto_publish_id)
+            
+            # 继续自动发布循环
+            success = cycle_generator.continue_auto_publish_cycle(auto_publish_id)
+            if success:
+                logger.info(f"已触发自动发布配置 {auto_publish_id} 的下一轮循环")
+            else:
+                logger.warning(f"触发自动发布配置 {auto_publish_id} 下一轮循环失败")
+                
+        except Exception as e:
+            logger.error(f"触发下一轮自动发布循环失败: {e}")
     
     def mark_as_failed(self, post_id: str, error: str) -> bool:
         """标记任务为发布失败"""

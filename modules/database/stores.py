@@ -3,7 +3,7 @@ import logging
 import uuid
 from datetime import datetime
 
-from modules.database.dao import TopicDAO, PromptDAO, KeywordDAO, KeywordGroupDAO, GroupsDAO
+from modules.database.dao import TopicDAO, PromptDAO, KeywordDAO, KeywordGroupDAO, GroupsDAO, AutoPublishConfigDAO, AIConversationDAO
 
 logger = logging.getLogger(__name__)
 
@@ -537,4 +537,150 @@ class GroupKeywordsStoreDB:
             return success
         except Exception as e:
             logger.error(f"更新分组关键词失败: {e}")
+            return False
+
+
+class AutoPublishStoreDB:
+    """自动发布配置存储管理类"""
+    
+    def __init__(self):
+        self.config_dao = AutoPublishConfigDAO()
+        self.conversation_dao = AIConversationDAO()
+        logger.info("初始化自动发布配置数据库存储")
+    
+    def create_config(self, topic_id: str, max_posts: int = -1) -> Optional[str]:
+        """创建自动发布配置"""
+        try:
+            config_id = str(uuid.uuid4())
+            config_data = {
+                'id': config_id,
+                'topic_id': topic_id,
+                'max_posts': max_posts,
+                'current_posts': 0,
+                'is_active': 1
+            }
+            
+            result = self.config_dao.insert(config_data)
+            if result:
+                logger.info(f"创建自动发布配置成功: {config_id}")
+                return config_id
+            return None
+        except Exception as e:
+            logger.error(f"创建自动发布配置失败: {e}")
+            return None
+    
+    def get_config(self, config_id: str) -> Optional[Dict]:
+        """获取自动发布配置"""
+        try:
+            return self.config_dao.find_by_id(config_id)
+        except Exception as e:
+            logger.error(f"获取自动发布配置失败: {e}")
+            return None
+    
+    def get_config_by_topic(self, topic_id: str) -> Optional[Dict]:
+        """根据话题ID获取自动发布配置"""
+        try:
+            return self.config_dao.find_by_topic_id(topic_id)
+        except Exception as e:
+            logger.error(f"根据话题获取自动发布配置失败: {e}")
+            return None
+    
+    def get_all_configs(self) -> List[Dict]:
+        """获取所有自动发布配置"""
+        try:
+            return self.config_dao.find_all()
+        except Exception as e:
+            logger.error(f"获取所有自动发布配置失败: {e}")
+            return []
+    
+    def get_active_configs(self) -> List[Dict]:
+        """获取所有激活的自动发布配置"""
+        try:
+            return self.config_dao.find_active()
+        except Exception as e:
+            logger.error(f"获取激活的自动发布配置失败: {e}")
+            return []
+    
+    def get_publishable_configs(self) -> List[Dict]:
+        """获取可发布的配置"""
+        try:
+            return self.config_dao.find_publishable()
+        except Exception as e:
+            logger.error(f"获取可发布配置失败: {e}")
+            return []
+    
+    def update_config(self, config_id: str, updates: Dict) -> bool:
+        """更新自动发布配置"""
+        try:
+            return self.config_dao.update(config_id, updates) > 0
+        except Exception as e:
+            logger.error(f"更新自动发布配置失败: {e}")
+            return False
+    
+    def toggle_config(self, config_id: str, is_active: bool) -> bool:
+        """切换配置激活状态"""
+        try:
+            return self.update_config(config_id, {'is_active': int(is_active)})
+        except Exception as e:
+            logger.error(f"切换配置状态失败: {e}")
+            return False
+    
+    def delete_config(self, config_id: str) -> bool:
+        """删除自动发布配置"""
+        try:
+            return self.config_dao.delete(config_id) > 0
+        except Exception as e:
+            logger.error(f"删除自动发布配置失败: {e}")
+            return False
+    
+    def increment_posts(self, config_id: str) -> bool:
+        """增加已发布数量"""
+        try:
+            return self.config_dao.increment_posts(config_id)
+        except Exception as e:
+            logger.error(f"增加发布数量失败: {e}")
+            return False
+    
+    def reset_posts(self, config_id: str) -> bool:
+        """重置已发布数量"""
+        try:
+            return self.config_dao.reset_posts(config_id)
+        except Exception as e:
+            logger.error(f"重置发布数量失败: {e}")
+            return False
+    
+    def save_conversation(self, topic_id: str, messages: List[Dict]) -> Optional[str]:
+        """保存AI对话历史"""
+        try:
+            conversation_id = str(uuid.uuid4())
+            if self.conversation_dao.create_with_messages(conversation_id, topic_id, messages):
+                logger.info(f"保存对话历史成功: {conversation_id}")
+                return conversation_id
+            return None
+        except Exception as e:
+            logger.error(f"保存对话历史失败: {e}")
+            return None
+    
+    def get_conversation_history(self, topic_id: str) -> List[Dict]:
+        """获取话题的对话历史"""
+        try:
+            return self.conversation_dao.find_by_topic_id(topic_id)
+        except Exception as e:
+            logger.error(f"获取对话历史失败: {e}")
+            return []
+    
+    def get_latest_conversation(self, topic_id: str) -> Optional[Dict]:
+        """获取话题的最新对话"""
+        try:
+            return self.conversation_dao.get_latest_by_topic(topic_id)
+        except Exception as e:
+            logger.error(f"获取最新对话失败: {e}")
+            return None
+    
+    def add_message_to_conversation(self, conversation_id: str, role: str, content: str) -> bool:
+        """为对话添加消息"""
+        try:
+            return self.conversation_dao.add_message(conversation_id, role, content)
+        except Exception as e:
+            logger.error(f"添加对话消息失败: {e}")
             return False
