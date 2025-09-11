@@ -616,7 +616,7 @@ class MaimaiPublisher {
 
         this.addUserMessage(text);
         this.chatInput.value = '';
-        this.setButtonLoading(this.sendMsgBtn, 'success');
+        this.setButtonLoading(this.sendMsgBtn, true);
         
         const retryInfo = this.jsonRetryCount > 0 ? ` (重试 ${this.jsonRetryCount}/${this.maxJsonRetry})` : '';
         this.updateStatus(`正在生成回复...${retryInfo}`, 'info');
@@ -654,7 +654,7 @@ class MaimaiPublisher {
         } catch (error) {
             this.updateStatus(`生成异常: ${error.message}`, 'error');
         } finally {
-            this.setButtonLoading(this.sendMsgBtn, 'error');
+            this.setButtonLoading(this.sendMsgBtn, false);
         }
     }
 
@@ -895,7 +895,7 @@ class MaimaiPublisher {
 
     // 自动重试生成
     async autoRetryGeneration() {
-        this.setButtonLoading(this.sendMsgBtn, 'success');
+        this.setButtonLoading(this.sendMsgBtn, true);
         
         const retryInfo = ` (重试 ${this.jsonRetryCount}/${this.maxJsonRetry})`;
         this.updateStatus(`正在生成回复...${retryInfo}`, 'info');
@@ -925,7 +925,7 @@ class MaimaiPublisher {
             this.updateStatus(`生成异常: ${error.message}`, 'error');
             this.isRetrying = false;
         } finally {
-            this.setButtonLoading(this.sendMsgBtn, 'error');
+            this.setButtonLoading(this.sendMsgBtn, false);
         }
     }
 
@@ -1002,7 +1002,7 @@ class MaimaiPublisher {
             finalContent = `${this.selectedKeyword} ${content}`;
         }
 
-        this.setButtonLoading(this.publishBtn, 'success');
+        this.setButtonLoading(this.publishBtn, true);
         this.updateStatus('正在发布到脉脉...', 'info');
 
         try {
@@ -1040,7 +1040,7 @@ class MaimaiPublisher {
         } catch (error) {
             this.updateStatus(`发布异常: ${error.message}`, 'error');
         } finally {
-            this.setButtonLoading(this.publishBtn, 'error');
+            this.setButtonLoading(this.publishBtn, false);
         }
     }
     
@@ -1066,7 +1066,7 @@ class MaimaiPublisher {
             return;
         }
 
-        this.setButtonLoading(this.publishBtn, 'success');
+        this.setButtonLoading(this.publishBtn, true);
         this.updateStatus(`开始批量发布 ${validPosts.length} 篇文章...`, 'info');
 
         const topicUrl = this.topicUrlInput?.value.trim();
@@ -1136,7 +1136,7 @@ class MaimaiPublisher {
         } catch (error) {
             this.updateStatus(`批量发布过程异常: ${error.message}`, 'error');
         } finally {
-            this.setButtonLoading(this.publishBtn, 'error');
+            this.setButtonLoading(this.publishBtn, false);
         }
     }
 
@@ -1147,7 +1147,7 @@ class MaimaiPublisher {
             return;
         }
 
-        this.setButtonLoading(this.getTopicInfoBtn, 'success');
+        this.setButtonLoading(this.getTopicInfoBtn, true);
         this.updateStatus('正在获取话题信息...', 'info');
 
         try {
@@ -1174,7 +1174,7 @@ class MaimaiPublisher {
         } catch (error) {
             this.updateStatus(`获取话题信息异常: ${error.message}`, 'error');
         } finally {
-            this.setButtonLoading(this.getTopicInfoBtn, 'error');
+            this.setButtonLoading(this.getTopicInfoBtn, false);
         }
     }
 
@@ -2008,7 +2008,7 @@ class MaimaiPublisher {
                 });
             }
 
-            this.setButtonLoading(this.batchImportBtn, 'success');
+            this.setButtonLoading(this.batchImportBtn, true);
             this.updateStatus(`正在批量导入 ${topicsData.length} 个话题...`, 'info');
 
             const response = await fetch('/api/topics/batch', {
@@ -2054,7 +2054,7 @@ class MaimaiPublisher {
                 this.updateStatus(`批量导入异常: ${parseError.message}`, 'error');
             }
         } finally {
-            this.setButtonLoading(this.batchImportBtn, 'error');
+            this.setButtonLoading(this.batchImportBtn, false);
         }
     }
 
@@ -2229,7 +2229,7 @@ class MaimaiPublisher {
             finalContent = `${this.selectedKeyword} ${content}`;
         }
 
-        this.setButtonLoading(this.schedulePublishBtn, 'success');
+        this.setButtonLoading(this.schedulePublishBtn, true);
         this.updateStatus('正在添加到定时发布队列...', 'info');
 
         try {
@@ -2266,7 +2266,7 @@ class MaimaiPublisher {
         } catch (error) {
             this.updateStatus(`定时发布添加异常: ${error.message}`, 'error');
         } finally {
-            this.setButtonLoading(this.schedulePublishBtn, 'error');
+            this.setButtonLoading(this.schedulePublishBtn, false);
         }
     }
     
@@ -2292,7 +2292,7 @@ class MaimaiPublisher {
             return;
         }
 
-        this.setButtonLoading(this.schedulePublishBtn, 'success');
+        this.setButtonLoading(this.schedulePublishBtn, true);
         this.updateStatus(`开始添加 ${validPosts.length} 篇文章到定时发布队列...`, 'info');
 
         const topicUrl = this.topicUrlInput?.value.trim();
@@ -2367,7 +2367,7 @@ class MaimaiPublisher {
         } catch (error) {
             this.updateStatus(`批量定时发布过程异常: ${error.message}`, 'error');
         } finally {
-            this.setButtonLoading(this.schedulePublishBtn, 'error');
+            this.setButtonLoading(this.schedulePublishBtn, false);
         }
     }
 
@@ -2476,11 +2476,17 @@ class MaimaiPublisher {
             <div class="post-meta">
                 <small>预计发布: ${scheduledTime}</small>
                 <div class="post-actions">
+                    <button class="btn-primary small edit-scheduled-post" data-id="${post.id}">编辑</button>
                     <button class="btn-danger small delete-scheduled-post" data-id="${post.id}">删除</button>
                 </div>
             </div>
             ${post.error ? `<div class="post-error">错误: ${this.escapeHtml(post.error)}</div>` : ''}
         `;
+
+        const editBtn = item.querySelector('.edit-scheduled-post');
+        editBtn?.addEventListener('click', () => {
+            this.editScheduledPost(post);
+        });
 
         const deleteBtn = item.querySelector('.delete-scheduled-post');
         deleteBtn?.addEventListener('click', () => {
@@ -2490,6 +2496,96 @@ class MaimaiPublisher {
         });
 
         return item;
+    }
+
+    editScheduledPost(post) {
+        // 创建编辑弹窗
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.style.display = 'block';
+        
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>编辑定时发布</h3>
+                    <button class="modal-close" id="close-edit-modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <label>标题:</label>
+                        <input type="text" id="edit-title" value="${this.escapeHtml(post.title)}" placeholder="文章标题">
+                    </div>
+                    <div class="row">
+                        <label>内容:</label>
+                        <textarea id="edit-content" rows="10" placeholder="文章内容">${this.escapeHtml(post.content)}</textarea>
+                    </div>
+                    <div class="post-info">
+                        <small>预计发布时间: ${new Date(post.scheduled_at).toLocaleString()}</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="save-edit" class="btn-success">保存修改</button>
+                    <button id="cancel-edit" class="btn-secondary">取消</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // 绑定事件
+        const closeBtn = modal.querySelector('#close-edit-modal');
+        const cancelBtn = modal.querySelector('#cancel-edit');
+        const saveBtn = modal.querySelector('#save-edit');
+        const titleInput = modal.querySelector('#edit-title');
+        const contentTextarea = modal.querySelector('#edit-content');
+        
+        const closeModal = () => {
+            document.body.removeChild(modal);
+        };
+        
+        closeBtn.addEventListener('click', closeModal);
+        cancelBtn.addEventListener('click', closeModal);
+        
+        // 点击模态框外部关闭
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeModal();
+            }
+        });
+        
+        saveBtn.addEventListener('click', async () => {
+            const title = titleInput.value.trim();
+            const content = contentTextarea.value.trim();
+            
+            if (!content) {
+                alert('内容不能为空');
+                return;
+            }
+            
+            try {
+                this.setButtonLoading(saveBtn, true);
+                
+                const response = await fetch(`/api/scheduled-posts/${post.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, content })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    this.updateStatus('定时发布任务修改成功', 'success');
+                    this.loadScheduledPosts(); // 刷新列表
+                    closeModal();
+                } else {
+                    this.updateStatus(`修改失败: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                this.updateStatus(`修改异常: ${error.message}`, 'error');
+            } finally {
+                this.setButtonLoading(saveBtn, false);
+            }
+        });
     }
 
     async deleteScheduledPost(postId) {
@@ -2688,6 +2784,7 @@ class MaimaiPublisher {
                     ${configId !== this.currentAiConfigId && config.enabled ? 
                         `<button class="btn-success small" onclick="app.switchAiConfig('${configId}')">切换</button>` : 
                         ''}
+                    <button class="btn-warning small" onclick="app.editAiConfig('${configId}')">编辑</button>
                     <button class="btn-danger small" onclick="app.deleteAiConfig('${configId}')">删除</button>
                 </div>
             `;
@@ -2828,7 +2925,7 @@ class MaimaiPublisher {
                 return;
             }
             
-            this.setButtonLoading(this.addAiConfigBtn, 'success');
+            this.setButtonLoading(this.addAiConfigBtn, true);
             
             const response = await fetch('/api/ai-configs', {
                 method: 'POST',
@@ -2850,7 +2947,7 @@ class MaimaiPublisher {
             console.error('添加AI配置异常:', error);
             this.updateStatus(`添加AI配置异常: ${error.message}`, 'error');
         } finally {
-            this.setButtonLoading(this.addAiConfigBtn, 'error');
+            this.setButtonLoading(this.addAiConfigBtn, false);
         }
     }
     
@@ -2861,6 +2958,144 @@ class MaimaiPublisher {
         if (this.newAiApiKeyInput) this.newAiApiKeyInput.value = '';
         if (this.newAiMainModelInput) this.newAiMainModelInput.value = '';
         if (this.newAiAssistantModelInput) this.newAiAssistantModelInput.value = '';
+    }
+    
+    editAiConfig(configId) {
+        // 找到要编辑的配置
+        const config = this.aiConfigs.find(c => c.id === configId);
+        if (!config) {
+            this.updateStatus('配置不存在', 'error');
+            return;
+        }
+        
+        // 创建编辑弹窗
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.style.display = 'block';
+        
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>编辑AI配置</h3>
+                    <button class="modal-close" id="close-edit-ai-modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <label>配置名称:</label>
+                        <input type="text" id="edit-ai-name" value="${this.escapeHtml(config.name)}" placeholder="配置名称">
+                    </div>
+                    <div class="row">
+                        <label>描述:</label>
+                        <input type="text" id="edit-ai-description" value="${this.escapeHtml(config.description || '')}" placeholder="描述（可选）">
+                    </div>
+                    <div class="row">
+                        <label>API地址:</label>
+                        <input type="url" id="edit-ai-base-url" value="${this.escapeHtml(config.base_url)}" placeholder="API地址">
+                    </div>
+                    <div class="row">
+                        <label>API密钥:</label>
+                        <input type="text" id="edit-ai-api-key" value="${this.escapeHtml(config.api_key)}" placeholder="API密钥">
+                    </div>
+                    <div class="row">
+                        <label>主模型:</label>
+                        <input type="text" id="edit-ai-main-model" value="${this.escapeHtml(config.main_model)}" placeholder="主模型名称">
+                    </div>
+                    <div class="row">
+                        <label>助手模型:</label>
+                        <input type="text" id="edit-ai-assistant-model" value="${this.escapeHtml(config.assistant_model || '')}" placeholder="助手模型（可选）">
+                    </div>
+                    <div class="row">
+                        <label>
+                            <input type="checkbox" id="edit-ai-enabled" ${config.enabled ? 'checked' : ''}>
+                            启用此配置
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="save-ai-edit" class="btn-success">保存修改</button>
+                    <button id="cancel-ai-edit" class="btn-secondary">取消</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // 绑定事件
+        const closeBtn = modal.querySelector('#close-edit-ai-modal');
+        const cancelBtn = modal.querySelector('#cancel-ai-edit');
+        const saveBtn = modal.querySelector('#save-ai-edit');
+        
+        const nameInput = modal.querySelector('#edit-ai-name');
+        const descriptionInput = modal.querySelector('#edit-ai-description');
+        const baseUrlInput = modal.querySelector('#edit-ai-base-url');
+        const apiKeyInput = modal.querySelector('#edit-ai-api-key');
+        const mainModelInput = modal.querySelector('#edit-ai-main-model');
+        const assistantModelInput = modal.querySelector('#edit-ai-assistant-model');
+        const enabledCheckbox = modal.querySelector('#edit-ai-enabled');
+        
+        const closeModal = () => {
+            document.body.removeChild(modal);
+        };
+        
+        closeBtn.addEventListener('click', closeModal);
+        cancelBtn.addEventListener('click', closeModal);
+        
+        // 点击模态框外部关闭
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeModal();
+            }
+        });
+        
+        saveBtn.addEventListener('click', async () => {
+            const name = nameInput.value.trim();
+            const description = descriptionInput.value.trim();
+            const baseUrl = baseUrlInput.value.trim();
+            const apiKey = apiKeyInput.value.trim();
+            const mainModel = mainModelInput.value.trim();
+            const assistantModel = assistantModelInput.value.trim();
+            const enabled = enabledCheckbox.checked;
+            
+            if (!name || !baseUrl || !apiKey || !mainModel) {
+                alert('配置名称、API地址、API密钥和主模型不能为空');
+                return;
+            }
+            
+            try {
+                this.setButtonLoading(saveBtn, true);
+                
+                const updateData = {
+                    name,
+                    description,
+                    base_url: baseUrl,
+                    api_key: apiKey,
+                    main_model: mainModel,
+                    assistant_model: assistantModel,
+                    enabled
+                };
+                
+                const response = await fetch(`/api/ai-configs/${configId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updateData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    this.updateStatus('AI配置修改成功', 'success');
+                    await this.loadAiConfigs(); // 重新加载配置列表
+                    this.renderAiConfigsList(); // 刷新显示
+                    closeModal();
+                } else {
+                    this.updateStatus(`修改失败: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                this.updateStatus(`修改异常: ${error.message}`, 'error');
+            } finally {
+                this.setButtonLoading(saveBtn, false);
+            }
+        });
     }
     
     async deleteAiConfig(configId) {
