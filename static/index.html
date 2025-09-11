@@ -108,8 +108,19 @@
                 </div>
                 <div class="section">
                     <div class="section-title">提示词管理</div>
-                    <div class="row">
-                        <button id="manage-prompts" class="btn-primary grow">管理提示词</button>
+                    <div class="prompt-quick-selector">
+                        <div class="current-prompt-info">
+                            <p class="small-text">当前: <span id="sidebar-current-prompt">加载中...</span></p>
+                        </div>
+                        <div class="row">
+                            <select id="sidebar-prompt-select" class="grow">
+                                <option value="">选择提示词</option>
+                            </select>
+                        </div>
+                        <div class="row">
+                            <button id="quick-apply-prompt" class="btn-success small" disabled>应用</button>
+                            <button id="manage-prompts" class="btn-secondary small">管理</button>
+                        </div>
                     </div>
                 </div>
                 <div class="section">

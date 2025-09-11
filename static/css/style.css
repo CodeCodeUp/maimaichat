@@ -2269,3 +2269,37 @@ textarea {
         gap: 8px;
     }
 }
+
+/* --- 提示词快速选择器样式 --- */
+.prompt-quick-selector {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.prompt-quick-selector .current-prompt-info {
+    margin-bottom: 0.25rem;
+}
+
+.prompt-quick-selector .small-text {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin: 0;
+    line-height: 1.4;
+}
+
+.prompt-quick-selector .small-text span {
+    color: var(--text-primary);
+    font-weight: 500;
+    max-width: 150px;
+    display: inline-block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: top;
+}
+
+#quick-apply-prompt:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

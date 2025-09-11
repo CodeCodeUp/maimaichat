@@ -111,6 +111,11 @@ class MaimaiPublisher {
     this.saveAllPromptsBtn = document.getElementById('save-all-prompts');
     this.promptListContainer = document.getElementById('prompt-list-container');
     this.currentPromptName = document.getElementById('current-prompt-name');
+    
+    // 侧边栏快速提示词选择器
+    this.sidebarPromptSelect = document.getElementById('sidebar-prompt-select');
+    this.quickApplyPromptBtn = document.getElementById('quick-apply-prompt');
+    this.sidebarCurrentPrompt = document.getElementById('sidebar-current-prompt');
 
         // 其他
         this.statusDisplay = document.getElementById('status-display');
@@ -250,6 +255,16 @@ class MaimaiPublisher {
         this.closePromptModalFooterBtn?.addEventListener('click', () => this.closePromptModal());
         this.addPromptItemBtn?.addEventListener('click', () => this.addPromptItem());
         this.saveAllPromptsBtn?.addEventListener('click', () => this.saveAllPrompts());
+        
+        // 侧边栏快速提示词选择
+        this.quickApplyPromptBtn?.addEventListener('click', () => this.quickApplyPrompt());
+        this.sidebarPromptSelect?.addEventListener('change', (e) => {
+            if (e.target.value) {
+                this.quickApplyPromptBtn.disabled = false;
+            } else {
+                this.quickApplyPromptBtn.disabled = true;
+            }
+        });
         
         // AI配置管理
         this.aiConfigSelect?.addEventListener('change', (e) => this.switchAiConfig(e.target.value));
@@ -412,23 +427,51 @@ class MaimaiPublisher {
     }
 
     updatePromptSelect() {
-        if (!this.promptSelect) return;
+        // 更新弹窗内的提示词选择器
+        if (this.promptSelect) {
+            this.promptSelect.innerHTML = '<option value="">选择提示词模板</option>';
+            Object.keys(this.prompts).forEach(key => {
+                const option = document.createElement('option');
+                option.value = key;
+                option.textContent = key;
+                if (key === this.currentPromptKey) {
+                    option.selected = true;
+                }
+                this.promptSelect.appendChild(option);
+            });
+        }
         
-        this.promptSelect.innerHTML = '<option value="">选择提示词模板</option>';
-        Object.keys(this.prompts).forEach(key => {
-            const option = document.createElement('option');
-            option.value = key;
-            option.textContent = key;
-            if (key === this.currentPromptKey) {
-                option.selected = true;
+        // 更新侧边栏的提示词选择器
+        if (this.sidebarPromptSelect) {
+            this.sidebarPromptSelect.innerHTML = '<option value="">选择提示词</option>';
+            let hasCurrentSelected = false;
+            Object.keys(this.prompts).forEach(key => {
+                const option = document.createElement('option');
+                option.value = key;
+                option.textContent = key;
+                if (key === this.currentPromptKey) {
+                    option.selected = true;
+                    hasCurrentSelected = true;
+                }
+                this.sidebarPromptSelect.appendChild(option);
+            });
+            
+            // 根据是否有选中项设置按钮状态
+            if (this.quickApplyPromptBtn) {
+                this.quickApplyPromptBtn.disabled = !hasCurrentSelected;
             }
-            this.promptSelect.appendChild(option);
-        });
+        }
     }
 
     updateCurrentPromptDisplay() {
+        // 更新弹窗内的当前提示词显示
         if (this.currentPromptName) {
             this.currentPromptName.textContent = this.currentPromptKey || '无';
+        }
+        
+        // 更新侧边栏的当前提示词显示
+        if (this.sidebarCurrentPrompt) {
+            this.sidebarCurrentPrompt.textContent = this.currentPromptKey || '无';
         }
     }
 
@@ -471,6 +514,49 @@ class MaimaiPublisher {
         this.clearChat();
         this.addSystemMessage(this.currentPrompt);
         this.updateStatus(`已应用模板"${selectedKey}"`, 'success');
+    }
+
+    async quickApplyPrompt() {
+        const selectedKey = this.sidebarPromptSelect?.value;
+        if (!selectedKey) {
+            this.updateStatus('请选择一个提示词', 'error');
+            return;
+        }
+        
+        const content = this.prompts[selectedKey];
+        if (!content) {
+            this.updateStatus('所选提示词为空', 'error');
+            return;
+        }
+        
+        this.currentPrompt = content;
+        this.currentPromptKey = selectedKey;
+        
+        // 保存选择到localStorage
+        localStorage.setItem('lastSelectedPrompt', selectedKey);
+        
+        // 同步到后端
+        try {
+            const response = await fetch('/api/prompts/current', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: selectedKey })
+            });
+            
+            const result = await response.json();
+            if (!result.success) {
+                console.warn('同步当前提示词到后端失败:', result.error);
+            }
+        } catch (error) {
+            console.warn('同步当前提示词到后端异常:', error);
+        }
+        
+        // 更新所有相关显示
+        this.updateCurrentPromptDisplay();
+        this.updatePromptSelect(); // 同步更新弹窗中的选择器
+        this.clearChat();
+        this.addSystemMessage(this.currentPrompt);
+        this.updateStatus(`已应用"${selectedKey}"`, 'success');
     }
 
     openPromptModal() {
