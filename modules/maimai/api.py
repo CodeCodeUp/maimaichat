@@ -142,7 +142,8 @@ class MaimaiAPI:
                        topic_url: str = None,
                        topic_id: str = None,
                        circle_type: str = None,
-                       topic_name: str = None) -> Dict[str, Any]:
+                       topic_name: str = None,
+                       publish_type: str = 'anonymous') -> Dict[str, Any]:
         """
         发布内容到脉脉（完全基于真实的移动端API请求）
         
@@ -255,9 +256,13 @@ class MaimaiAPI:
             endpoint = f"{self.base_url}/sdk/publish"
             full_url = f"{endpoint}?{urlencode(url_params)}"
             
+            # 根据发布方式设置参数
+            annoy_type = '5' if publish_type == 'anonymous' else '6'
+            username_type = '5' if publish_type == 'anonymous' else '6'
+            
             # 构建POST数据（复制真实请求的格式）
             post_data = {
-                'annoy_type': '5',
+                'annoy_type': annoy_type,
                 'is_original': '0',
                 'extra_infomation': json.dumps({
                     "aigc_rewrite": "[]",
@@ -265,7 +270,7 @@ class MaimaiAPI:
                     "pub_setting": '{"cmty_identity":1}',
                     "pub_extra": url_params['pub_extra']
                 }, ensure_ascii=False),
-                'username_type': '5',
+                'username_type': username_type,
                 'at_users': '{}',
                 'fr': 'topic_detail' if final_topic_id else 'mainpage_701_101',
                 'container_id': '-4001',

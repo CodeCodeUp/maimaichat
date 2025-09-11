@@ -29,7 +29,7 @@ class ScheduledPostsStoreDB:
     
     def add_post(self, title: str, content: str, topic_url: str = None, 
                  topic_id: str = None, circle_type: str = None, topic_name: str = None, 
-                 auto_publish_id: str = None) -> str:
+                 auto_publish_id: str = None, publish_type: str = 'anonymous') -> str:
         """添加定时发布任务，基于最后一篇待发布时间计算发布时间"""
         post_id = str(uuid.uuid4())
         
@@ -63,6 +63,7 @@ class ScheduledPostsStoreDB:
             "topic_id": topic_id,
             "circle_type": circle_type,
             "topic_name": topic_name,
+            "publish_type": publish_type,
             "auto_publish_id": auto_publish_id,
             "scheduled_at": scheduled_at,
             "status": "pending"

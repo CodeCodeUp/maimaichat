@@ -158,6 +158,7 @@ class AutoPublishCycleGenerator:
                 'topic_id': topic_id,
                 'circle_type': topic.get('circle_type', ''),
                 'topic_name': topic['name'],
+                'publish_type': config.get('publish_type', 'anonymous'),  # 从配置中获取发布方式
                 'auto_publish_id': config_id,  # 标记为自动发布
                 'status': 'pending',
                 'scheduled_at': scheduled_at

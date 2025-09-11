@@ -81,8 +81,9 @@ class ScheduledPublisher:
         topic_id = post_to_publish.get('topic_id', '')
         circle_type = post_to_publish.get('circle_type', '')
         topic_name = post_to_publish.get('topic_name', '')  # 新增：获取话题名称
+        publish_type = post_to_publish.get('publish_type', 'anonymous')  # 新增：获取发布方式
         
-        logger.info(f"开始发布定时任务: {title}")
+        logger.info(f"开始发布定时任务: {title} (发布方式: {'匿名' if publish_type == 'anonymous' else '实名'})")
         
         try:
             # 调用脉脉API发布，完全复制正常发布的逻辑
@@ -93,7 +94,8 @@ class ScheduledPublisher:
                     content=content,
                     topic_id=topic_id,
                     circle_type=circle_type,
-                    topic_name=topic_name  # 新增：传递话题名称
+                    topic_name=topic_name,  # 新增：传递话题名称
+                    publish_type=publish_type  # 新增：传递发布方式
                 )
                 logger.info(f"使用选择的话题发布: ID={topic_id}, Name={topic_name}, CircleType={circle_type}")
             elif topic_url:
@@ -101,14 +103,16 @@ class ScheduledPublisher:
                 result = self.maimai_api.publish_content(
                     title=title,
                     content=content,
-                    topic_url=topic_url
+                    topic_url=topic_url,
+                    publish_type=publish_type  # 新增：传递发布方式
                 )
                 logger.info(f"使用话题链接发布: {topic_url}")
             else:
                 # 无话题发布
                 result = self.maimai_api.publish_content(
                     title=title,
-                    content=content
+                    content=content,
+                    publish_type=publish_type  # 新增：传递发布方式
                 )
                 logger.info("无话题发布")
             

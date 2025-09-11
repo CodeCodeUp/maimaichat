@@ -56,7 +56,7 @@ class Config:
     # 脉脉API配置
     MAIMAI_CONFIG = {
         "base_url": "https://api.taou.com",
-        "access_token": os.environ.get('MAIMAI_ACCESS_TOKEN', 'e42e97bf8d6d8ed0608a1bd05c2d5eae'),
+        "access_token": os.environ.get('MAIMAI_ACCESS_TOKEN', '577d64ced4be18b0c0bfc1a51109daa8'),
         "device_params": {
             'version': '6.6.82',
             'ver_code': 'android_60682',

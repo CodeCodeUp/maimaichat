@@ -132,7 +132,7 @@ class ScheduledPostDAO(BaseDAO):
         super().__init__('scheduled_posts')
     
     def _get_table_fields(self) -> List[str]:
-        return ['id', 'title', 'content', 'topic_url', 'topic_id', 'circle_type', 'topic_name', 'auto_publish_id', 'status', 'scheduled_at', 'published_at', 'error', 'failed_at', 'created_at', 'updated_at']
+        return ['id', 'title', 'content', 'topic_url', 'topic_id', 'circle_type', 'topic_name', 'publish_type', 'auto_publish_id', 'status', 'scheduled_at', 'published_at', 'error', 'failed_at', 'created_at', 'updated_at']
     
     def _get_json_fields(self) -> List[str]:
         return []
@@ -443,7 +443,7 @@ class AutoPublishConfigDAO(BaseDAO):
         super().__init__('auto_publish_configs')
     
     def _get_table_fields(self) -> List[str]:
-        return ['id', 'topic_id', 'prompt_key', 'max_posts', 'current_posts', 'is_active', 'last_published_at', 'created_at', 'updated_at']
+        return ['id', 'topic_id', 'publish_type', 'prompt_key', 'max_posts', 'current_posts', 'is_active', 'last_published_at', 'created_at', 'updated_at']
     
     def _get_json_fields(self) -> List[str]:
         return []

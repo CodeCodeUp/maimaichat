@@ -31,14 +31,15 @@ class TopicStoreDB:
         """保存话题数据到数据库（兼容原接口，实际无需操作）"""
         pass
     
-    def add_topic(self, topic_id: str, name: str, circle_type: str = None, group_name: str = None) -> bool:
+    def add_topic(self, topic_id: str, name: str, circle_type: str = None, group_name: str = None, publish_type: str = 'anonymous') -> bool:
         """添加话题"""
         try:
             topic_data = {
                 'id': topic_id,
                 'name': name,
                 'circle_type': circle_type,
-                'group_name': group_name
+                'group_name': group_name,
+                'publish_type': publish_type
             }
             
             result = self.dao.insert(topic_data)
@@ -586,13 +587,14 @@ class AutoPublishStoreDB:
         self.conversation_dao = AIConversationDAO()
         logger.info("初始化自动发布配置数据库存储")
     
-    def create_config(self, topic_id: str, max_posts: int = -1, prompt_key: str = None) -> Optional[str]:
+    def create_config(self, topic_id: str, max_posts: int = -1, prompt_key: str = None, publish_type: str = 'anonymous') -> Optional[str]:
         """创建自动发布配置"""
         try:
             config_id = str(uuid.uuid4())
             config_data = {
                 'id': config_id,
                 'topic_id': topic_id,
+                'publish_type': publish_type,
                 'prompt_key': prompt_key,
                 'max_posts': max_posts,
                 'current_posts': 0,
@@ -601,7 +603,7 @@ class AutoPublishStoreDB:
             
             result = self.config_dao.insert(config_data)
             if result:
-                logger.info(f"创建自动发布配置成功: {config_id}, 提示词: {prompt_key or '使用当前提示词'}")
+                logger.info(f"创建自动发布配置成功: {config_id}, 发布方式: {'匿名' if publish_type == 'anonymous' else '实名'}, 提示词: {prompt_key or '使用当前提示词'}")
                 return config_id
             return None
         except Exception as e:

@@ -64,6 +64,15 @@
                         <button id="manage-keywords" class="btn-secondary small">管理</button>
                     </div>
                     
+                    <!-- 发布方式选择区域 -->
+                    <div class="row">
+                        <label class="small-label">发布方式:</label>
+                        <select id="publish-type-select" class="small" style="width: 120px;">
+                            <option value="anonymous">匿名发布</option>
+                            <option value="real_name">实名发布</option>
+                        </select>
+                    </div>
+                    
                     <textarea id="generated-content" rows="8" placeholder="生成的内容会显示在这里，可编辑后发布"></textarea>
                     
                     <!-- 多篇内容显示区域 -->
@@ -215,6 +224,12 @@
                             <input type="text" id="new-topic-circle" placeholder="圈子类型" class="grow">
                             <select id="new-topic-group-select" class="grow">
                                 <option value="">选择分组 (可选)</option>
+                            </select>
+                        </div>
+                        <div class="row">
+                            <select id="new-topic-publish-type" class="grow">
+                                <option value="anonymous">匿名发布</option>
+                                <option value="real_name">实名发布</option>
                             </select>
                             <button id="add-topic-btn" class="btn-primary small">添加话题</button>
                         </div>
@@ -394,6 +409,14 @@
                                 <option value="">使用当前选定的提示词</option>
                             </select>
                             <span class="help-text">选择此话题使用的提示词，留空则使用全局当前提示词</span>
+                        </div>
+                        <div class="form-row">
+                            <label>发布方式:</label>
+                            <select id="auto-publish-publish-type" class="grow">
+                                <option value="anonymous">匿名发布</option>
+                                <option value="real_name">实名发布</option>
+                            </select>
+                            <span class="help-text">选择此自动发布配置的发布方式</span>
                         </div>
                         <div class="form-row">
                             <label>最大发布数量:</label>

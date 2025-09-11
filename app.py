@@ -153,8 +153,9 @@ def publish_content():
         topic_url = data.get('topic_url', '')
         topic_id = data.get('topic_id', '')
         circle_type = data.get('circle_type', '')
+        publish_type = data.get('publish_type', 'anonymous')  # 获取发布方式，默认匿名
 
-        logger.info(f"开始发布内容：{title}")
+        logger.info(f"开始发布内容：{title} (发布方式: {'匿名' if publish_type == 'anonymous' else '实名'})")
 
         # 调用脉脉API发布，支持两种话题模式
         if topic_id and circle_type:
@@ -162,12 +163,14 @@ def publish_content():
             logger.info(f"使用选择的话题：ID={topic_id}, circle_type={circle_type}")
             topic_data = topic_store.get_topic(topic_id)
             topic_name = topic_data.get('name') if topic_data else None
+            
             result = maimai_api.publish_content(
                 title=title,
                 content=content,
                 topic_id=topic_id,
                 circle_type=circle_type,
-                topic_name=topic_name
+                topic_name=topic_name,
+                publish_type=publish_type
             )
         elif topic_url:
             # 使用话题链接提取
@@ -175,14 +178,16 @@ def publish_content():
             result = maimai_api.publish_content(
                 title=title,
                 content=content,
-                topic_url=topic_url
+                topic_url=topic_url,
+                publish_type=publish_type
             )
         else:
             # 无话题发布
             logger.info("无话题发布")
             result = maimai_api.publish_content(
                 title=title,
-                content=content
+                content=content,
+                publish_type=publish_type
             )
 
         if result['success']:
@@ -471,8 +476,9 @@ def schedule_publish():
         topic_url = data.get('topic_url', '')
         topic_id = data.get('topic_id', '')
         circle_type = data.get('circle_type', '')
+        publish_type = data.get('publish_type', 'anonymous')  # 获取发布方式，默认匿名
 
-        logger.info(f"添加定时发布任务：{title}")
+        logger.info(f"添加定时发布任务：{title} (发布方式: {'匿名' if publish_type == 'anonymous' else '实名'})")
 
         # 确定话题信息，完全复制正常发布的逻辑
         topic_name = None
@@ -481,6 +487,7 @@ def schedule_publish():
             logger.info(f"使用选择的话题：ID={topic_id}, circle_type={circle_type}")
             topic_data = topic_store.get_topic(topic_id)
             topic_name = topic_data.get('name') if topic_data else None
+                
         elif topic_url:
             # 使用话题链接提取
             logger.info(f"使用话题链接：{topic_url}")
@@ -494,7 +501,8 @@ def schedule_publish():
             topic_url=topic_url,
             topic_id=topic_id,
             circle_type=circle_type,
-            topic_name=topic_name  # 新增：保存话题名称
+            topic_name=topic_name,  # 新增：保存话题名称
+            publish_type=publish_type  # 新增：保存发布方式
         )
 
         # 获取任务信息以返回预计发布时间
@@ -626,6 +634,7 @@ def create_auto_publish_config():
         topic_id = data.get('topic_id')
         prompt_key = data.get('prompt_key')  # 添加提示词键名
         max_posts = data.get('max_posts', -1)
+        publish_type = data.get('publish_type', 'anonymous')  # 添加发布方式参数
         
         if not topic_id:
             return jsonify({'success': False, 'error': '话题ID不能为空'}), 400
@@ -640,7 +649,7 @@ def create_auto_publish_config():
         if existing_config:
             return jsonify({'success': False, 'error': '该话题已配置自动发布'}), 400
         
-        config_id = auto_publish_store.create_config(topic_id, max_posts, prompt_key)
+        config_id = auto_publish_store.create_config(topic_id, max_posts, prompt_key, publish_type)
         if config_id:
             config = auto_publish_store.get_config(config_id)
             config['topic_name'] = topic_data.get('name', '')

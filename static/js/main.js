@@ -75,6 +75,8 @@ class MaimaiPublisher {
         this.newTopicNameInput = document.getElementById('new-topic-name');
         this.newTopicCircleInput = document.getElementById('new-topic-circle');
         this.newTopicGroupSelect = document.getElementById('new-topic-group-select');  // 新增
+        this.newTopicPublishTypeSelect = document.getElementById('new-topic-publish-type');  // 新增
+        this.publishTypeSelect = document.getElementById('publish-type-select');  // 发布方式选择
         this.addTopicBtn = document.getElementById('add-topic-btn');
         this.topicSearchInput = document.getElementById('topic-search');
         this.searchTopicsBtn = document.getElementById('search-topics-btn');
@@ -134,6 +136,7 @@ class MaimaiPublisher {
         this.closeAutoPublishModalFooterBtn = document.getElementById('close-auto-publish-modal-footer');
         this.autoPublishTopicSelect = document.getElementById('auto-publish-topic-select');
         this.autoPublishPromptSelect = document.getElementById('auto-publish-prompt-select');
+        this.autoPublishPublishTypeSelect = document.getElementById('auto-publish-publish-type');
         this.autoPublishMaxPostsInput = document.getElementById('auto-publish-max-posts');
         this.createAutoPublishBtn = document.getElementById('create-auto-publish-btn');
         this.refreshAutoPublishBtn = document.getElementById('refresh-auto-publish');
@@ -1008,18 +1011,22 @@ class MaimaiPublisher {
         try {
             let publishData = { title, content: finalContent };
             
+            // 获取发布方式
+            const publishType = this.publishTypeSelect?.value || 'anonymous';
+            publishData.publish_type = publishType;
+            
             if (selectedTopicId) {
                 const selectedTopic = this.topics.find(t => t.id === selectedTopicId);
                 if (selectedTopic) {
                     publishData.topic_id = selectedTopic.id;
                     publishData.circle_type = selectedTopic.circle_type;
-                    this.updateStatus(`使用选择的话题: ${selectedTopic.name}`, 'info');
+                    this.updateStatus(`使用选择的话题: ${selectedTopic.name} (${publishType === 'anonymous' ? '匿名' : '实名'}发布)`, 'info');
                 }
             } else if (topicUrl) {
                 publishData.topic_url = topicUrl;
-                this.updateStatus('使用话题链接进行发布', 'info');
+                this.updateStatus(`使用话题链接进行发布 (${publishType === 'anonymous' ? '匿名' : '实名'}发布)`, 'info');
             } else {
-                this.updateStatus('无话题发布', 'info');
+                this.updateStatus(`无话题发布 (${publishType === 'anonymous' ? '匿名' : '实名'}发布)`, 'info');
             }
 
             const response = await fetch('/api/publish', {
@@ -1073,6 +1080,11 @@ class MaimaiPublisher {
         const selectedTopicId = this.selectedTopicId;
         
         let publishData = {};
+        
+        // 获取发布方式
+        const publishType = this.publishTypeSelect?.value || 'anonymous';
+        publishData.publish_type = publishType;
+        
         if (selectedTopicId) {
             const selectedTopic = this.topics.find(t => t.id === selectedTopicId);
             if (selectedTopic) {
@@ -1730,6 +1742,7 @@ class MaimaiPublisher {
         const name = this.newTopicNameInput?.value.trim();
         const circleType = this.newTopicCircleInput?.value.trim();
         const group = this.newTopicGroupSelect?.value.trim() || null;
+        const publishType = this.newTopicPublishTypeSelect?.value || 'anonymous';
         
         if (!topicId || !name || !circleType) {
             this.updateStatus('请填写话题ID、名称和圈子类型', 'error');
@@ -1737,7 +1750,12 @@ class MaimaiPublisher {
         }
 
         try {
-            const requestData = { id: topicId, name, circle_type: circleType };
+            const requestData = { 
+                id: topicId, 
+                name, 
+                circle_type: circleType,
+                publish_type: publishType
+            };
             if (group) {
                 requestData.group = group;
             }
@@ -1754,6 +1772,7 @@ class MaimaiPublisher {
                 this.newTopicNameInput.value = '';
                 this.newTopicCircleInput.value = '';
                 this.newTopicGroupSelect.value = '';
+                this.newTopicPublishTypeSelect.value = 'anonymous';  // 重置为默认值
                 this.loadTopicsForModal();
                 this.loadTopics();
                 this.updateStatus('话题添加成功', 'success');
@@ -2235,6 +2254,10 @@ class MaimaiPublisher {
         try {
             let publishData = { title, content: finalContent };
             
+            // 获取发布方式
+            const publishType = this.publishTypeSelect?.value || 'anonymous';
+            publishData.publish_type = publishType;
+            
             if (selectedTopicId) {
                 const selectedTopic = this.topics.find(t => t.id === selectedTopicId);
                 if (selectedTopic) {
@@ -2299,6 +2322,11 @@ class MaimaiPublisher {
         const selectedTopicId = this.selectedTopicId;
         
         let publishData = {};
+        
+        // 获取发布方式
+        const publishType = this.publishTypeSelect?.value || 'anonymous';
+        publishData.publish_type = publishType;
+        
         if (selectedTopicId) {
             const selectedTopic = this.topics.find(t => t.id === selectedTopicId);
             if (selectedTopic) {
@@ -3330,6 +3358,7 @@ class MaimaiPublisher {
         try {
             const topicId = this.autoPublishTopicSelect?.value;
             const promptKey = this.autoPublishPromptSelect?.value;
+            const publishType = this.autoPublishPublishTypeSelect?.value || 'anonymous';
             const maxPosts = parseInt(this.autoPublishMaxPostsInput?.value || '-1');
             
             if (!topicId) {
@@ -3339,6 +3368,7 @@ class MaimaiPublisher {
             
             const data = {
                 topic_id: topicId,
+                publish_type: publishType,
                 max_posts: maxPosts
             };
             
@@ -3370,6 +3400,7 @@ class MaimaiPublisher {
                 // 重置表单
                 if (this.autoPublishTopicSelect) this.autoPublishTopicSelect.value = '';
                 if (this.autoPublishPromptSelect) this.autoPublishPromptSelect.value = '';
+                if (this.autoPublishPublishTypeSelect) this.autoPublishPublishTypeSelect.value = 'anonymous';
                 if (this.autoPublishMaxPostsInput) this.autoPublishMaxPostsInput.value = '-1';
                 // 重新加载配置列表
                 await this.loadAutoPublishConfigs();
