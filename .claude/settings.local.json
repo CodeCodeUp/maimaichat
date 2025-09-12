@@ -6,7 +6,8 @@
       "Bash(del test_publish.py)",
       "Bash(git rm:*)",
       "Bash(git push:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "mcp__thinking__sequentialthinking"
     ],
     "deny": [],
     "ask": []

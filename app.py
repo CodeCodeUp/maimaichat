@@ -1052,12 +1052,8 @@ def get_prompts():
     """获取所有提示词"""
     try:
         logger.info("API /api/prompts GET 被调用")
-        logger.info(f"prompt_store 类型: {type(prompt_store)}")
-        logger.info(f"prompt_store 是否有 load_prompts 方法: {hasattr(prompt_store, 'load_prompts')}")
         
         prompts = prompt_store.load_prompts()
-        logger.info(f"prompt_store.load_prompts() 返回: {prompts}")
-        logger.info(f"返回数据类型: {type(prompts)}, 长度: {len(prompts) if isinstance(prompts, dict) else 'N/A'}")
         
         return jsonify({'success': True, 'data': prompts})
     except Exception as e:
