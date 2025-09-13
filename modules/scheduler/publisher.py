@@ -66,8 +66,19 @@ class ScheduledPublisher:
         
         logger.info("定时发布处理器已退出")
     
+    def _is_night_time(self):
+        """检查当前时间是否在夜间时段（22:00-08:00）"""
+        current_hour = datetime.now().hour
+        # 夜间时段：22:00-23:59 和 00:00-07:59
+        return current_hour >= 22 or current_hour < 8
+    
     def _process_pending_posts(self):
         """处理待发布的任务"""
+        # 检查是否在夜间时间段（22:00-08:00），如果是则跳过发布
+        if self._is_night_time():
+            logger.info("当前时间在夜间时段（22:00-08:00），跳过发布任务")
+            return
+            
         # 获取下一个要发布的任务（只获取一个）
         post_to_publish = self.scheduled_posts_store.get_next_post_to_publish()
         

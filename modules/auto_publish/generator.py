@@ -191,22 +191,22 @@ class AutoPublishCycleGenerator:
                 if prompt_key:
                     prompt_content = self.prompt_store.get_prompt(prompt_key)
                     if prompt_content:
-                        system_content = f"{prompt_content}。你正在为话题进行持续的内容创作。请基于话题内容生成有价值、有深度的讨论内容。"
+                        system_content = f"{prompt_content}"
                         logger.info(f"使用配置中指定的提示词: {prompt_key}")
                     else:
                         # 如果指定的提示词不存在，使用当前选定的提示词作为后备
                         current_prompt_key, current_prompt_content = self.prompt_store.get_current_prompt()
                         if current_prompt_content:
-                            system_content = f"{current_prompt_content}。你正在为话题进行持续的内容创作。请基于话题内容生成有价值、有深度的讨论内容。"
+                            system_content = f"{current_prompt_content}。"
                             logger.warning(f"指定的提示词 {prompt_key} 不存在，使用当前提示词: {current_prompt_key}")
                         else:
-                            system_content = "你是一个专业的内容创作者，正在为话题进行持续的内容创作。请基于话题内容生成有价值、有深度的讨论内容。"
+                            system_content = "你是一个专业的内容创作者，正在为话题进行持续的内容创作"
                             logger.warning("指定的提示词和当前提示词都不存在，使用默认系统消息")
                 else:
                     # 如果配置中没有指定提示词，使用当前选定的提示词
                     current_prompt_key, current_prompt_content = self.prompt_store.get_current_prompt()
                     if current_prompt_content:
-                        system_content = f"{current_prompt_content}。你正在为话题进行持续的内容创作。请基于话题内容生成有价值、有深度的讨论内容。"
+                        system_content = f"{current_prompt_content}"
                         logger.info(f"配置未指定提示词，使用当前选定的提示词: {current_prompt_key}")
                     else:
                         system_content = "你是一个专业的内容创作者，正在为话题进行持续的内容创作。请基于话题内容生成有价值、有深度的讨论内容。"
@@ -280,20 +280,7 @@ class AutoPublishCycleGenerator:
             user_prompt = f"""
 {base_prompt}
 
-请基于话题"{topic['name']}"生成一篇新的讨论内容。
-
-要求：
-1. 内容要有独特性，避免与之前的内容重复
-2. 保持专业性和价值性
-3. 字数控制在200-500字之间
-4. 语言自然流畅，适合在职场社交平台发布
-
-话题信息：
-- 名称：{topic['name']}
-- 分组：{topic.get('group_name', '未分组')}
-- 圈子类型：{topic.get('circle_type', '未知')}
-
-请直接返回要发布的内容，不需要额外的解释。
+开始
 """
             
             messages.append({

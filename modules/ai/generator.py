@@ -1,6 +1,7 @@
 import requests
 import json
 import logging
+import re
 from typing import Dict, Any, List
 
 logger = logging.getLogger(__name__)
@@ -53,9 +54,11 @@ class AIContentGenerator:
             if resp.status_code == 200:
                 data = resp.json()
                 content = data['choices'][0]['message']['content']
+                # 清理content中的方括号内容，如[1]、[注释]等
+                cleaned_content = self._clean_brackets_content(content)
                 return {
                     'success': True,
-                    'content': content,
+                    'content': cleaned_content,
                     'model_used': model,
                     'tokens_used': data.get('usage', {}).get('total_tokens', 0)
                 }
@@ -75,6 +78,19 @@ class AIContentGenerator:
         except Exception as e:
             logger.error(f"AI对话异常：{str(e)}")
             return {'success': False, 'error': f'生成时发生错误：{str(e)}'}
+
+    def _clean_brackets_content(self, content: str) -> str:
+        """
+        清理内容中的方括号内容，如[1]、[注释]等
+        """
+        try:
+            # 使用正则表达式删除所有方括号及其内容
+            cleaned_content = re.sub(r'\[[^\]]*\]', '', content)
+            logger.debug("已清理content中的方括号内容")
+            return cleaned_content
+        except Exception as e:
+            logger.warning(f"清理方括号内容时出错：{e}，返回原内容")
+            return content
 
     def test_connection(self) -> Dict[str, Any]:
         try:

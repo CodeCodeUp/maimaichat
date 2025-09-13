@@ -1,0 +1,2 @@
+# 脉脉Android自动化依赖包
+uiautomator2==2.16.25
