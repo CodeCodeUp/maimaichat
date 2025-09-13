@@ -58,7 +58,7 @@ class AIContentGenerator:
                 # 打印AI真正的原始回答
                 logger.info("="*50)
                 logger.info("AI真正的原始回答:")
-                logger.info(content)
+                logger.info(data)
                 logger.info("="*50)
                 
                 return {
