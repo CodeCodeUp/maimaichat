@@ -1,6 +1,8 @@
 from flask import Flask, render_template, request, jsonify, send_from_directory
 import logging
 import os
+import json
+import re
 from datetime import datetime
 from config import Config
 from modules.ai.generator import AIContentGenerator
@@ -24,6 +26,86 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
+def parse_ai_response(content: str) -> dict:
+    """
+    解析AI返回的内容，使用正则表达式直接提取title和content
+    不依赖JSON格式正确性，只要找到"title":"xxx"和"content":"xxx"就提取
+    """
+    try:
+        # 打印AI原始回答
+        logger.info("="*50)
+        logger.info("AI原始回答:")
+        logger.info(content)
+        logger.info("="*50)
+        
+        # 使用更简单直接的正则表达式，优先匹配完整的对象
+        # 方法1：匹配完整的对象结构 {title:"...", content:"..."}
+        object_pattern = r'\{\s*"title"\s*:\s*"((?:[^"\\]|\\.)*?)"\s*,\s*"content"\s*:\s*"((?:[^"\\]|\\.)*?)"\s*\}'
+        object_matches = re.findall(object_pattern, content, re.DOTALL)
+        
+        if object_matches:
+            titles = [m[0] for m in object_matches]
+            contents = [m[1] for m in object_matches]
+            logger.info("使用对象模式匹配成功")
+        else:
+            # 方法2：单独匹配title和content字段
+            title_pattern = r'"title"\s*:\s*"((?:[^"\\]|\\.)*?)"'
+            content_pattern = r'"content"\s*:\s*"((?:[^"\\]|\\.)*?)"'
+            
+            titles = re.findall(title_pattern, content, re.DOTALL)
+            contents = re.findall(content_pattern, content, re.DOTALL)
+            logger.info("使用字段模式匹配")
+        
+        logger.info(f"正则提取结果: 找到 {len(titles)} 个title, {len(contents)} 个content")
+        logger.info(f"提取的titles: {titles}")
+        logger.info(f"提取的contents: {[c[:100] + '...' if len(c) > 100 else c for c in contents]}")
+        
+        # 配对title和content
+        valid_items = []
+        max_pairs = min(len(titles), len(contents))
+        
+        for i in range(max_pairs):
+            title = titles[i].strip()
+            content_text = contents[i].strip()
+            
+            if title and content_text:
+                # 处理转义字符
+                title = title.replace('\\"', '"').replace('\\n', '\n')
+                content_text = content_text.replace('\\"', '"').replace('\\n', '\n')
+                
+                # 清理content中的方括号内容
+                cleaned_content = re.sub(r'\[[^\]]*\]', '', content_text)
+                valid_items.append({
+                    'title': title,
+                    'content': cleaned_content
+                })
+                
+                logger.info(f"处理第{i+1}个对象:")
+                logger.info(f"  原始title: {title}")
+                logger.info(f"  原始content长度: {len(content_text)}")
+                logger.info(f"  清理后content长度: {len(cleaned_content)}")
+        
+        if valid_items:
+            logger.info(f"最终解析成功: 共{len(valid_items)}个有效对象")
+            return {
+                'items': valid_items,
+                'success': True
+            }
+        
+        # 如果没有找到配对，返回原始内容
+        logger.warning("未找到有效的title和content配对，使用原始内容")
+        return {
+            'items': [{'title': None, 'content': content}],
+            'success': False
+        }
+        
+    except Exception as e:
+        logger.warning(f"解析异常: {e}，使用原始内容")
+        return {
+            'items': [{'title': None, 'content': content}],
+            'success': False
+        }
 
 # 初始化数据库存储（替代JSON存储）
 from modules.database.init import create_database_stores, get_database_scheduler
@@ -105,6 +187,15 @@ def generate_content():
         
         logger.info("开始对话生成，消息数：%d", len(messages))
         result = ai_generator.chat(messages=messages, use_main_model=use_main_model)
+
+        # 如果生成成功，尝试解析结构化内容
+        if result.get('success') and 'content' in result:
+            parsed_data = parse_ai_response(result['content'])
+            if parsed_data['success']:
+                # 如果成功解析出结构化内容，添加到结果中
+                result['parsed_items'] = parsed_data['items']
+                result['item_count'] = len(parsed_data['items'])
+                logger.info(f"成功解析结构化内容，包含{len(parsed_data['items'])}个对象")
 
         # 如果生成成功且需要保存对话历史
         if result.get('success') and save_conversation and topic_id:

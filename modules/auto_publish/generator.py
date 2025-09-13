@@ -294,41 +294,29 @@ class AutoPublishCycleGenerator:
             if response and response.get('success'):
                 generated_content = response['content']
                 
-                # 尝试解析JSON格式，如果AI返回的是JSON格式
+                # 尝试解析内容，直接提取title和content
                 title = None
                 content = generated_content
                 
                 try:
-                    import json
-                    import re
+                    # 使用统一的简化解析逻辑
+                    parsed_result = self._parse_ai_response_simple(generated_content)
                     
-                    # 提取JSON内容
-                    json_match = re.search(r'```json\s*(\{.*?\})\s*```', generated_content, re.DOTALL)
-                    if not json_match:
-                        json_match = re.search(r'(\{.*?"title".*?"content".*?\})', generated_content, re.DOTALL)
-                    
-                    if json_match:
-                        json_str = json_match.group(1)
-                        parsed_json = json.loads(json_str)
-                        
-                        if isinstance(parsed_json, dict) and 'title' in parsed_json and 'content' in parsed_json:
-                            # 解析出标题和内容
-                            title = parsed_json['title']
-                            content = parsed_json['content']
-                            logger.info(f"成功解析JSON格式内容 - 标题: {title[:20]}...")
-                        else:
-                            # 如果解析失败，使用原始内容
-                            content = generated_content
-                            logger.info("JSON解析失败，使用原始内容")
+                    if parsed_result['success'] and parsed_result['items']:
+                        # 使用第一个有效的对象
+                        first_item = parsed_result['items'][0]
+                        title = first_item['title']
+                        content = first_item['content']
+                        logger.info(f"成功解析内容 - 标题: {title[:20] if title else 'None'}...")
                     else:
-                        # 没有找到JSON格式，使用原始内容
+                        # 解析失败，使用原始内容
                         content = generated_content
-                        logger.info("未检测到JSON格式，使用原始内容")
+                        logger.info("未找到title和content，使用原始内容")
                         
-                except (json.JSONDecodeError, Exception) as e:
+                except Exception as e:
                     # 解析失败，使用原始内容
                     content = generated_content
-                    logger.warning(f"JSON解析异常: {e}，使用原始内容")
+                    logger.warning(f"解析异常: {e}，使用原始内容")
                 
                 # 添加AI回复到历史
                 messages.append({
@@ -356,6 +344,76 @@ class AutoPublishCycleGenerator:
         except Exception as e:
             logger.error(f"更新对话历史失败: {e}")
             return False
+    
+    def _parse_ai_response_simple(self, content: str) -> dict:
+        """
+        简化解析逻辑，使用正则表达式直接提取title和content
+        """
+        import re
+        
+        try:
+            # 打印AI原始回答
+            logger.info("="*50)
+            logger.info("自动发布 - AI原始回答:")
+            logger.info(content)
+            logger.info("="*50)
+            
+            # 更强的正则表达式，处理content中包含双引号的情况
+            title_pattern = r'"title"\s*:\s*"((?:[^"\\]|\\.)*)"\s*[,}]'
+            content_pattern = r'"content"\s*:\s*"((?:[^"\\]|\\.)*)"'
+            
+            titles = re.findall(title_pattern, content, re.DOTALL)
+            contents = re.findall(content_pattern, content, re.DOTALL)
+            
+            logger.info(f"自动发布 - 正则提取结果: 找到 {len(titles)} 个title, {len(contents)} 个content")
+            logger.info(f"自动发布 - 提取的titles: {titles}")
+            logger.info(f"自动发布 - 提取的contents: {[c[:50] + '...' if len(c) > 50 else c for c in contents]}")
+            
+            # 配对title和content
+            valid_items = []
+            max_pairs = min(len(titles), len(contents))
+            
+            for i in range(max_pairs):
+                title = titles[i].strip()
+                content_text = contents[i].strip()
+                
+                if title and content_text:
+                    # 处理转义字符
+                    title = title.replace('\\"', '"').replace('\\n', '\n')
+                    content_text = content_text.replace('\\"', '"').replace('\\n', '\n')
+                    
+                    # 清理content中的方括号内容
+                    cleaned_content = re.sub(r'\[[^\]]*\]', '', content_text)
+                    valid_items.append({
+                        'title': title,
+                        'content': cleaned_content
+                    })
+                    
+                    logger.info(f"自动发布 - 处理第{i+1}个对象:")
+                    logger.info(f"  原始title: {title}")
+                    logger.info(f"  原始content: {content_text[:100]}...")
+                    logger.info(f"  清理后content: {cleaned_content[:100]}...")
+            
+            if valid_items:
+                logger.info(f"自动发布 - 最终解析成功: 共{len(valid_items)}个有效对象")
+                return {
+                    'items': valid_items,
+                    'success': True
+                }
+            
+            # 如果没有找到配对，返回原始内容
+            logger.warning("自动发布 - 未找到有效的title和content配对，使用原始内容")
+            return {
+                'items': [{'title': None, 'content': content}],
+                'success': False
+            }
+            
+        except Exception as e:
+            logger.warning(f"自动发布 - 解析异常: {e}，使用原始内容")
+            return {
+                'items': [{'title': None, 'content': content}],
+                'success': False
+            }
     
     def stop_auto_publish_cycle(self, config_id: str) -> bool:
         """停止自动发布循环"""

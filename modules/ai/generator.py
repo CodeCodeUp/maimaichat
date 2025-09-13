@@ -54,11 +54,16 @@ class AIContentGenerator:
             if resp.status_code == 200:
                 data = resp.json()
                 content = data['choices'][0]['message']['content']
-                # 清理content中的方括号内容，如[1]、[注释]等
-                cleaned_content = self._clean_brackets_content(content)
+                
+                # 打印AI真正的原始回答
+                logger.info("="*50)
+                logger.info("AI真正的原始回答:")
+                logger.info(content)
+                logger.info("="*50)
+                
                 return {
                     'success': True,
-                    'content': cleaned_content,
+                    'content': content,  # 直接返回原始内容，不做任何处理
                     'model_used': model,
                     'tokens_used': data.get('usage', {}).get('total_tokens', 0)
                 }

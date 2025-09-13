@@ -730,7 +730,7 @@ class MaimaiPublisher {
             if (result.success) {
                 this.addAssistantMessage(result.content);
                 // 尝试解析JSON格式并自动回填，如果失败可能触发重试
-                await this.processGeneratedContent(result.content);
+                await this.processGeneratedContent(result.content, result);
                 
                 let statusMessage = `生成成功，使用模型: ${result.model_used || 'unknown'}`;
                 if (result.conversation_id) {
@@ -780,106 +780,51 @@ class MaimaiPublisher {
     }
 
     // 处理AI生成的内容，检测JSON格式并自动回填
-    async processGeneratedContent(content) {
-        // 先检测是否为多篇格式
-        const multiplePostsResult = this.extractMultiplePostsFromContent(content);
-        
-        if (multiplePostsResult) {
-            // 多篇模式
-            this.isMultiplePosts = true;
-            this.currentPosts = multiplePostsResult;
-            this.renderMultiplePosts();
-            this.updatePublishButton();
-            this.updateStatus(`检测到多篇内容，共 ${this.currentPosts.length} 篇文章`, 'success');
-            this.jsonRetryCount = 0;
-            this.isRetrying = false;
-            return;
+    async processGeneratedContent(content, result = null) {
+        // 优先使用后端解析的结果
+        if (result && result.parsed_items && result.item_count > 0) {
+            const parsedItems = result.parsed_items;
+            
+            if (parsedItems.length > 1) {
+                // 多篇模式
+                this.isMultiplePosts = true;
+                this.currentPosts = parsedItems;
+                this.renderMultiplePosts();
+                this.updatePublishButton();
+                this.updateStatus(`检测到多篇内容，共 ${parsedItems.length} 篇文章`, 'success');
+                return;
+            } else if (parsedItems.length === 1) {
+                // 单篇模式 - 使用解析的结果
+                this.isMultiplePosts = false;
+                this.currentPosts = [];
+                
+                const parsedItem = parsedItems[0];
+                
+                // 自动填入标题和内容
+                if (parsedItem.title && this.titleInput) {
+                    this.titleInput.value = parsedItem.title;
+                }
+                
+                if (parsedItem.content && this.generatedContentTextarea) {
+                    this.generatedContentTextarea.value = parsedItem.content;
+                    this.updatePublishButton();
+                }
+                
+                this.updateStatus('内容解析成功，已自动回填', 'success');
+                return;
+            }
         }
         
-        // 单篇模式 - 使用原有逻辑
+        // 如果后端未解析到结构化内容，直接使用原始内容
         this.isMultiplePosts = false;
         this.currentPosts = [];
         
-        // 先默认填入原始内容
         if (this.generatedContentTextarea) {
             this.generatedContentTextarea.value = content;
             this.updatePublishButton();
         }
-
-        // 尝试解析JSON格式
-        const jsonResult = this.extractJsonFromContent(content);
-        if (jsonResult) {
-            const { title, content: jsonContent } = jsonResult;
-            
-            // 自动填入标题和内容
-            if (title && this.titleInput) {
-                this.titleInput.value = title;
-            }
-            
-            if (jsonContent && this.generatedContentTextarea) {
-                this.generatedContentTextarea.value = jsonContent;
-                this.updatePublishButton();
-            }
-            
-            if (title || jsonContent) {
-                this.updateStatus('JSON格式检测成功，已自动回填', 'success');
-                this.jsonRetryCount = 0;
-                this.isRetrying = false;
-            }
-        } else {
-            // JSON解析失败，检查是否需要重试
-            if (this.jsonRetryCount < this.maxJsonRetry) {
-                this.jsonRetryCount++;
-                this.isRetrying = true;
-                this.updateStatus(`JSON格式解析失败，正在重试 (${this.jsonRetryCount}/${this.maxJsonRetry})`, 'warning');
-                
-                // 添加重试提示消息
-                this.addUserMessage('请按照JSON格式回答，包含title和content字段：\n```json\n{\n  "title": "标题",\n  "content": "内容"\n}\n```\n\n或者多篇格式：\n```json\n[\n  {"title": "标题1", "content": "内容1"},\n  {"title": "标题2", "content": "内容2"}\n]\n```');
-                
-                // 延迟1秒后自动重试
-                setTimeout(() => {
-                    this.autoRetryGeneration();
-                }, 1000);
-            } else {
-                // 达到最大重试次数，忽略错误继续原始流程
-                this.updateStatus(`JSON格式解析失败，已达到最大重试次数(${this.maxJsonRetry})，继续原始流程`, 'warning');
-                this.jsonRetryCount = 0;
-                this.isRetrying = false;
-            }
-        }
-    }
-    
-    // 从内容中提取多篇文章格式
-    extractMultiplePostsFromContent(content) {
-        try {
-            // 查找JSON代码块 (```json ... ```)
-            const jsonBlockMatch = content.match(/```json\s*\n?([\s\S]*?)\n?```/);
-            if (jsonBlockMatch) {
-                const jsonStr = jsonBlockMatch[1].trim();
-                const parsed = JSON.parse(jsonStr);
-                
-                if (Array.isArray(parsed) && parsed.length > 0 && 
-                    parsed.every(item => item.title && item.content)) {
-                    return parsed;
-                }
-            }
-            
-            // 查找方括号包围的JSON (寻找数组格式)
-            const arrayMatch = content.match(/\[[\s\S]*?\]/);
-            if (arrayMatch) {
-                const jsonStr = arrayMatch[0];
-                const parsed = JSON.parse(jsonStr);
-                
-                if (Array.isArray(parsed) && parsed.length > 0 && 
-                    parsed.every(item => item.title && item.content)) {
-                    return parsed;
-                }
-            }
-            
-            return null;
-        } catch (error) {
-            return null;
-        }
+        
+        this.updateStatus('使用原始内容', 'info');
     }
     
     // 渲染多篇内容
@@ -1004,7 +949,7 @@ class MaimaiPublisher {
             if (result.success) {
                 this.addAssistantMessage(result.content);
                 // 递归调用处理生成内容
-                await this.processGeneratedContent(result.content);
+                await this.processGeneratedContent(result.content, result);
                 this.updateStatus(`生成成功，使用模型: ${result.model_used || 'unknown'}`, 'success');
             } else {
                 this.updateStatus(`生成失败: ${result.error}`, 'error');
@@ -1015,44 +960,6 @@ class MaimaiPublisher {
             this.isRetrying = false;
         } finally {
             this.setButtonLoading(this.sendMsgBtn, false);
-        }
-    }
-
-    // 从内容中提取JSON格式的title和content
-    extractJsonFromContent(content) {
-        try {
-            // 查找JSON代码块 (```json ... ```)
-            const jsonBlockMatch = content.match(/```json\s*\n?([\s\S]*?)\n?```/);
-            if (jsonBlockMatch) {
-                const jsonStr = jsonBlockMatch[1].trim();
-                const parsed = JSON.parse(jsonStr);
-                
-                if (parsed.title || parsed.content) {
-                    return {
-                        title: parsed.title || '',
-                        content: parsed.content || ''
-                    };
-                }
-            }
-            
-            // 查找花括号包围的JSON (寻找第一个完整的JSON对象)
-            const braceMatch = content.match(/\{[\s\S]*?\}/);
-            if (braceMatch) {
-                const jsonStr = braceMatch[0];
-                const parsed = JSON.parse(jsonStr);
-                
-                if (parsed.title || parsed.content) {
-                    return {
-                        title: parsed.title || '',
-                        content: parsed.content || ''
-                    };
-                }
-            }
-            
-            return null;
-        } catch (error) {
-            // JSON解析失败，忽略错误继续原始流程
-            return null;
         }
     }
 
