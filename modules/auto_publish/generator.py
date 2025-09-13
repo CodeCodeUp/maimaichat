@@ -189,43 +189,13 @@ class AutoPublishCycleGenerator:
             conversation = self.conversation_dao.get_latest_by_topic(topic_id)
             
             if not conversation:
-                # 获取配置中指定的提示词
-                prompt_key = config.get('prompt_key')
-                if prompt_key:
-                    prompt_content = self.prompt_store.get_prompt(prompt_key)
-                    if prompt_content:
-                        system_content = f"{prompt_content}"
-                        logger.info(f"使用配置中指定的提示词: {prompt_key}")
-                    else:
-                        # 如果指定的提示词不存在，使用当前选定的提示词作为后备
-                        current_prompt_key, current_prompt_content = self.prompt_store.get_current_prompt()
-                        if current_prompt_content:
-                            system_content = f"{current_prompt_content}。"
-                            logger.warning(f"指定的提示词 {prompt_key} 不存在，使用当前提示词: {current_prompt_key}")
-                        else:
-                            system_content = "你是一个专业的内容创作者，正在为话题进行持续的内容创作"
-                            logger.warning("指定的提示词和当前提示词都不存在，使用默认系统消息")
-                else:
-                    # 如果配置中没有指定提示词，使用当前选定的提示词
-                    current_prompt_key, current_prompt_content = self.prompt_store.get_current_prompt()
-                    if current_prompt_content:
-                        system_content = f"{current_prompt_content}"
-                        logger.info(f"配置未指定提示词，使用当前选定的提示词: {current_prompt_key}")
-                    else:
-                        system_content = "你是一个专业的内容创作者，正在为话题进行持续的内容创作。请基于话题内容生成有价值、有深度的讨论内容。"
-                        logger.warning("配置未指定提示词且当前提示词不存在，使用默认系统消息")
-                
-                # 创建新对话
+                # 创建新对话，初始时不包含任何消息，在第一次生成时添加system消息
                 conversation_id = f"auto_{topic_id}_{int(datetime.now().timestamp())}"
-                initial_messages = [
-                    {
-                        "role": "system",
-                        "content": system_content
-                    }
-                ]
+                initial_messages = []  # 空的消息列表，system消息将在第一次生成时添加
                 
                 self.conversation_dao.create_with_messages(conversation_id, topic_id, initial_messages)
                 conversation = self.conversation_dao.find_by_id(conversation_id)
+                logger.info(f"创建了新对话，ID: {conversation_id}，初始消息为空")
             
             return conversation
             
@@ -279,12 +249,23 @@ class AutoPublishCycleGenerator:
                     base_prompt = "你是一个资深新媒体编辑，擅长将话题梳理成适合脉脉的内容。"
                     logger.warning("配置未指定提示词且当前提示词不存在，使用默认提示词")
             
-            # 构建用户提示词，结合当前提示词和具体要求
-            user_prompt = f"""
-{base_prompt}
-
-开始
-"""
+            # 检查是否已有system消息，避免重复添加提示词
+            has_system_message = any(msg.get('role') == 'system' for msg in messages)
+            
+            # 构建用户提示词
+            if not has_system_message:
+                # 第一次或者没有system消息时，添加完整的提示词作为system消息
+                system_message = {
+                    "role": "system", 
+                    "content": base_prompt
+                }
+                messages.insert(0, system_message)
+                user_prompt = "开始"
+                logger.info("添加了system消息和第一次创作请求")
+            else:
+                # 已有历史对话时，只添加简单的继续请求，避免重复提示词
+                user_prompt = "开始"
+                logger.info("使用简化的继续创作请求，避免重复提示词")
             
             messages.append({
                 "role": "user",
