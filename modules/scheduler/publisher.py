@@ -94,6 +94,21 @@ class ScheduledPublisher:
         topic_name = post_to_publish.get('topic_name', '')  # 新增：获取话题名称
         publish_type = post_to_publish.get('publish_type', 'anonymous')  # 新增：获取发布方式
         
+        # 检查是否为重试任务
+        if self.scheduled_posts_store._is_retry_task(post_to_publish):
+            logger.info(f"开始处理重试任务: {title}")
+            # 处理重试任务
+            success = self.scheduled_posts_store._handle_retry_task(post_to_publish)
+            if success:
+                # 重试成功，删除重试任务
+                self.scheduled_posts_store.mark_as_published(post_id)
+                logger.info(f"重试任务处理成功并已删除: {title}")
+            else:
+                # 重试失败，删除当前重试任务（新的重试任务已在_handle_retry_task中创建）
+                self.scheduled_posts_store.mark_as_failed(post_id, "重试任务执行失败")
+                logger.error(f"重试任务处理失败: {title}")
+            return
+        
         logger.info(f"开始发布定时任务: {title} (发布方式: {'匿名' if publish_type == 'anonymous' else '实名'})")
         
         try:

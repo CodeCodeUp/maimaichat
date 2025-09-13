@@ -587,7 +587,7 @@ class AutoPublishStoreDB:
         self.conversation_dao = AIConversationDAO()
         logger.info("初始化自动发布配置数据库存储")
     
-    def create_config(self, topic_id: str, max_posts: int = -1, prompt_key: str = None, publish_type: str = 'anonymous', min_interval: int = 30, max_interval: int = 60) -> Optional[str]:
+    def create_config(self, topic_id: str, max_posts: int = -1, prompt_key: str = None, publish_type: str = 'anonymous', min_interval: int = 30, max_interval: int = 60, max_retry: int = 3) -> Optional[str]:
         """创建自动发布配置"""
         try:
             config_id = str(uuid.uuid4())
@@ -598,6 +598,9 @@ class AutoPublishStoreDB:
                 'prompt_key': prompt_key,
                 'min_interval': min_interval,
                 'max_interval': max_interval,
+                'retry_count': 0,
+                'max_retry': max_retry,
+                'last_error': None,
                 'max_posts': max_posts,
                 'current_posts': 0,
                 'is_active': 1
@@ -605,7 +608,7 @@ class AutoPublishStoreDB:
             
             result = self.config_dao.insert(config_data)
             if result:
-                logger.info(f"创建自动发布配置成功: {config_id}, 发布方式: {'匿名' if publish_type == 'anonymous' else '实名'}, 提示词: {prompt_key or '使用当前提示词'}, 间隔: {min_interval}-{max_interval}分钟")
+                logger.info(f"创建自动发布配置成功: {config_id}, 发布方式: {'匿名' if publish_type == 'anonymous' else '实名'}, 提示词: {prompt_key or '使用当前提示词'}, 间隔: {min_interval}-{max_interval}分钟, 最大重试: {max_retry}次")
                 return config_id
             return None
         except Exception as e:

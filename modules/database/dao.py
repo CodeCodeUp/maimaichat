@@ -443,7 +443,7 @@ class AutoPublishConfigDAO(BaseDAO):
         super().__init__('auto_publish_configs')
     
     def _get_table_fields(self) -> List[str]:
-        return ['id', 'topic_id', 'publish_type', 'prompt_key', 'min_interval', 'max_interval', 'max_posts', 'current_posts', 'is_active', 'last_published_at', 'created_at', 'updated_at']
+        return ['id', 'topic_id', 'publish_type', 'prompt_key', 'min_interval', 'max_interval', 'retry_count', 'max_retry', 'last_error', 'max_posts', 'current_posts', 'is_active', 'last_published_at', 'created_at', 'updated_at']
     
     def _get_json_fields(self) -> List[str]:
         return []
@@ -492,6 +492,49 @@ class AutoPublishConfigDAO(BaseDAO):
             return self.update(config_id, {'current_posts': 0}) > 0
         except Exception as e:
             logger.error(f"重置发布数量失败: {e}")
+            return False
+    
+    def increment_retry(self, config_id: str, error_msg: str = None) -> bool:
+        """增加重试次数并记录错误"""
+        try:
+            sql = f"""
+            UPDATE `{self.table_name}` 
+            SET `retry_count` = `retry_count` + 1,
+                `last_error` = %s,
+                `updated_at` = NOW()
+            WHERE `id` = %s
+            """
+            rows_affected = self.db.execute_update(sql, (error_msg, config_id))
+            return rows_affected > 0
+        except Exception as e:
+            logger.error(f"增加重试次数失败: {e}")
+            return False
+    
+    def reset_retry(self, config_id: str) -> bool:
+        """重置重试次数（成功后调用）"""
+        try:
+            return self.update(config_id, {
+                'retry_count': 0, 
+                'last_error': None,
+                'updated_at': 'NOW()'
+            }) > 0
+        except Exception as e:
+            logger.error(f"重置重试次数失败: {e}")
+            return False
+    
+    def can_retry(self, config_id: str) -> bool:
+        """检查是否可以重试"""
+        try:
+            config = self.find_by_id(config_id)
+            if not config:
+                return False
+            
+            retry_count = config.get('retry_count', 0)
+            max_retry = config.get('max_retry', 3)
+            
+            return retry_count < max_retry
+        except Exception as e:
+            logger.error(f"检查重试状态失败: {e}")
             return False
 
 

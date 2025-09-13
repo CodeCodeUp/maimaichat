@@ -164,11 +164,108 @@ class ScheduledPostsStoreDB:
             success = cycle_generator.continue_auto_publish_cycle(auto_publish_id)
             if success:
                 logger.info(f"已触发自动发布配置 {auto_publish_id} 的下一轮循环")
+                # 成功时重置重试次数
+                auto_config_dao.reset_retry(auto_publish_id)
             else:
-                logger.warning(f"触发自动发布配置 {auto_publish_id} 下一轮循环失败")
+                logger.warning(f"触发自动发布配置 {auto_publish_id} 下一轮循环失败，准备重试")
+                # 失败时安排重试
+                self._schedule_retry(auto_publish_id)
                 
         except Exception as e:
             logger.error(f"触发下一轮自动发布循环失败: {e}")
+            # 异常时也安排重试
+            self._schedule_retry(auto_publish_id, str(e))
+    
+    def _schedule_retry(self, auto_publish_id: str, error_msg: str = None):
+        """安排重试任务"""
+        try:
+            from modules.database.dao import AutoPublishConfigDAO
+            auto_config_dao = AutoPublishConfigDAO()
+            
+            # 检查是否可以重试
+            if not auto_config_dao.can_retry(auto_publish_id):
+                logger.error(f"自动发布配置 {auto_publish_id} 已达到最大重试次数，停用配置")
+                # 达到最大重试次数，停用配置
+                auto_config_dao.update(auto_publish_id, {
+                    'is_active': 0,
+                    'last_error': f"达到最大重试次数: {error_msg or '生成内容失败'}"
+                })
+                return
+            
+            # 增加重试次数
+            auto_config_dao.increment_retry(auto_publish_id, error_msg)
+            
+            # 获取配置信息用于计算重试延迟
+            config = auto_config_dao.find_by_id(auto_publish_id)
+            if not config:
+                logger.error(f"找不到自动发布配置: {auto_publish_id}")
+                return
+            
+            # 计算重试延迟（基于重试次数：第1次重试5分钟，第2次10分钟，第3次15分钟）
+            retry_count = config.get('retry_count', 1)
+            retry_delay_minutes = retry_count * 5  # 5, 10, 15分钟
+            
+            # 创建重试任务
+            import uuid
+            retry_task_id = f"retry_{uuid.uuid4().hex[:12]}_{int(datetime.now().timestamp())}"
+            
+            # 安排重试任务到定时发布队列
+            retry_data = {
+                'id': retry_task_id,
+                'title': f"重试自动发布 #{retry_count}",
+                'content': f"自动发布配置 {auto_publish_id} 重试任务",
+                'auto_publish_id': auto_publish_id,
+                'status': 'pending',
+                'scheduled_at': datetime.now() + timedelta(minutes=retry_delay_minutes)
+            }
+            
+            result = self.dao.insert(retry_data)
+            if result:
+                logger.info(f"已安排自动发布配置 {auto_publish_id} 的重试任务，{retry_delay_minutes}分钟后执行（第{retry_count}次重试）")
+            else:
+                logger.error(f"安排重试任务失败: {auto_publish_id}")
+                
+        except Exception as e:
+            logger.error(f"安排重试任务异常: {e}")
+    
+    def _is_retry_task(self, post: dict) -> bool:
+        """判断是否为重试任务"""
+        title = post.get('title', '')
+        return title.startswith('重试自动发布')
+    
+    def _handle_retry_task(self, post: dict) -> bool:
+        """处理重试任务"""
+        try:
+            auto_publish_id = post.get('auto_publish_id')
+            if not auto_publish_id:
+                logger.error("重试任务缺少auto_publish_id")
+                return False
+            
+            # 执行重试
+            from modules.auto_publish.generator import AutoPublishCycleGenerator
+            cycle_generator = AutoPublishCycleGenerator()
+            
+            success = cycle_generator.continue_auto_publish_cycle(auto_publish_id)
+            if success:
+                logger.info(f"重试任务执行成功: {auto_publish_id}")
+                # 成功时重置重试次数
+                from modules.database.dao import AutoPublishConfigDAO
+                auto_config_dao = AutoPublishConfigDAO()
+                auto_config_dao.reset_retry(auto_publish_id)
+                return True
+            else:
+                logger.warning(f"重试任务执行失败: {auto_publish_id}")
+                # 重试失败，继续安排下一次重试
+                self._schedule_retry(auto_publish_id, "重试生成内容失败")
+                return False
+                
+        except Exception as e:
+            logger.error(f"处理重试任务异常: {e}")
+            # 异常时也安排下一次重试
+            auto_publish_id = post.get('auto_publish_id')
+            if auto_publish_id:
+                self._schedule_retry(auto_publish_id, str(e))
+            return False
     
     def mark_as_failed(self, post_id: str, error: str) -> bool:
         """标记任务为发布失败"""
