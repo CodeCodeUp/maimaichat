@@ -443,7 +443,7 @@ class AutoPublishConfigDAO(BaseDAO):
         super().__init__('auto_publish_configs')
     
     def _get_table_fields(self) -> List[str]:
-        return ['id', 'topic_id', 'publish_type', 'prompt_key', 'max_posts', 'current_posts', 'is_active', 'last_published_at', 'created_at', 'updated_at']
+        return ['id', 'topic_id', 'publish_type', 'prompt_key', 'min_interval', 'max_interval', 'max_posts', 'current_posts', 'is_active', 'last_published_at', 'created_at', 'updated_at']
     
     def _get_json_fields(self) -> List[str]:
         return []

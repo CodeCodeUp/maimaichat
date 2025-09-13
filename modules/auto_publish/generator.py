@@ -139,9 +139,12 @@ class AutoPublishCycleGenerator:
                 logger.error(f"生成内容失败，话题ID: {topic_id}")
                 return False
             
-            # 计算随机发布时间（30-60分钟）
-            minutes = random.randint(30, 60)
+            # 计算随机发布时间（使用配置的间隔）
+            min_interval = config.get('min_interval', 30)
+            max_interval = config.get('max_interval', 60)
+            minutes = random.randint(min_interval, max_interval)
             scheduled_at = datetime.now() + timedelta(minutes=minutes)
+            logger.info(f"使用配置间隔 {min_interval}-{max_interval} 分钟，随机延迟 {minutes} 分钟")
             
             # 生成唯一的任务ID
             import uuid

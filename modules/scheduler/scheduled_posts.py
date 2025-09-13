@@ -29,15 +29,34 @@ class ScheduledPostsStoreDB:
     
     def add_post(self, title: str, content: str, topic_url: str = None, 
                  topic_id: str = None, circle_type: str = None, topic_name: str = None, 
-                 auto_publish_id: str = None, publish_type: str = 'anonymous') -> str:
+                 auto_publish_id: str = None, publish_type: str = 'anonymous',
+                 min_interval: int = None, max_interval: int = None) -> str:
         """添加定时发布任务，基于最后一篇待发布时间计算发布时间"""
         post_id = str(uuid.uuid4())
         
         # 根据是否为自动发布，调整时间间隔计算
         if auto_publish_id:
-            # 自动发布：30-60分钟随机间隔
-            delay_minutes = random.randint(30, 60)
-            logger.info(f"自动发布任务，随机延迟：{delay_minutes}分钟")
+            # 自动发布：使用配置的间隔或默认30-60分钟
+            if min_interval is not None and max_interval is not None:
+                delay_minutes = random.randint(min_interval, max_interval)
+                logger.info(f"自动发布任务，使用配置间隔：{min_interval}-{max_interval}分钟，随机延迟：{delay_minutes}分钟")
+            else:
+                # 如果没有配置，从数据库获取配置
+                try:
+                    from modules.database.dao import AutoPublishConfigDAO
+                    auto_config_dao = AutoPublishConfigDAO()
+                    auto_config = auto_config_dao.find_by_id(auto_publish_id)
+                    if auto_config and 'min_interval' in auto_config and 'max_interval' in auto_config:
+                        delay_minutes = random.randint(auto_config['min_interval'], auto_config['max_interval'])
+                        logger.info(f"自动发布任务，从配置读取间隔：{auto_config['min_interval']}-{auto_config['max_interval']}分钟，随机延迟：{delay_minutes}分钟")
+                    else:
+                        # 使用默认值
+                        delay_minutes = random.randint(30, 60)
+                        logger.info(f"自动发布任务，使用默认间隔：30-60分钟，随机延迟：{delay_minutes}分钟")
+                except Exception as e:
+                    logger.error(f"读取自动发布配置失败: {e}")
+                    delay_minutes = random.randint(30, 60)
+                    logger.info(f"自动发布任务，使用默认间隔：30-60分钟，随机延迟：{delay_minutes}分钟")
         else:
             # 手动发布：5-20分钟间隔
             delay_minutes = random.randint(5, 20)

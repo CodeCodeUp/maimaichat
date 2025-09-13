@@ -3289,6 +3289,14 @@ class MaimaiPublisher {
                                 <span>${config.topic_group || '未分组'}</span>
                             </div>
                             <div class="config-detail-item">
+                                <span class="config-detail-label">发布方式:</span>
+                                <span>${config.publish_type === 'anonymous' ? '匿名' : '实名'}</span>
+                            </div>
+                            <div class="config-detail-item">
+                                <span class="config-detail-label">发布间隔:</span>
+                                <span class="interval-display">${config.min_interval || 30}-${config.max_interval || 60}分钟</span>
+                            </div>
+                            <div class="config-detail-item">
                                 <span class="config-detail-label">状态:</span>
                                 <span class="auto-publish-status ${isActive ? 'active' : 'inactive'}">
                                     ${isActive ? '激活' : '停用'}
@@ -3353,16 +3361,31 @@ class MaimaiPublisher {
             const promptKey = this.autoPublishPromptSelect?.value;
             const publishType = this.autoPublishPublishTypeSelect?.value || 'anonymous';
             const maxPosts = parseInt(this.autoPublishMaxPostsInput?.value || '-1');
+            const minInterval = parseInt(document.getElementById('auto-publish-min-interval')?.value || '30');
+            const maxInterval = parseInt(document.getElementById('auto-publish-max-interval')?.value || '60');
             
             if (!topicId) {
                 this.updateStatus('请选择话题', 'error');
                 return;
             }
             
+            // 验证间隔设置
+            if (minInterval < 1 || maxInterval < 1) {
+                this.updateStatus('发布间隔必须大于0分钟', 'error');
+                return;
+            }
+            
+            if (minInterval > maxInterval) {
+                this.updateStatus('最小间隔不能大于最大间隔', 'error');
+                return;
+            }
+            
             const data = {
                 topic_id: topicId,
                 publish_type: publishType,
-                max_posts: maxPosts
+                max_posts: maxPosts,
+                min_interval: minInterval,
+                max_interval: maxInterval
             };
             
             // 如果选择了特定的提示词，添加到数据中
@@ -3395,6 +3418,10 @@ class MaimaiPublisher {
                 if (this.autoPublishPromptSelect) this.autoPublishPromptSelect.value = '';
                 if (this.autoPublishPublishTypeSelect) this.autoPublishPublishTypeSelect.value = 'anonymous';
                 if (this.autoPublishMaxPostsInput) this.autoPublishMaxPostsInput.value = '-1';
+                const minIntervalInput = document.getElementById('auto-publish-min-interval');
+                const maxIntervalInput = document.getElementById('auto-publish-max-interval');
+                if (minIntervalInput) minIntervalInput.value = '30';
+                if (maxIntervalInput) maxIntervalInput.value = '60';
                 // 重新加载配置列表
                 await this.loadAutoPublishConfigs();
             } else {

@@ -726,6 +726,8 @@ def create_auto_publish_config():
         prompt_key = data.get('prompt_key')  # 添加提示词键名
         max_posts = data.get('max_posts', -1)
         publish_type = data.get('publish_type', 'anonymous')  # 添加发布方式参数
+        min_interval = data.get('min_interval', 30)  # 最小发布间隔
+        max_interval = data.get('max_interval', 60)  # 最大发布间隔
         
         if not topic_id:
             return jsonify({'success': False, 'error': '话题ID不能为空'}), 400
@@ -740,7 +742,7 @@ def create_auto_publish_config():
         if existing_config:
             return jsonify({'success': False, 'error': '该话题已配置自动发布'}), 400
         
-        config_id = auto_publish_store.create_config(topic_id, max_posts, prompt_key, publish_type)
+        config_id = auto_publish_store.create_config(topic_id, max_posts, prompt_key, publish_type, min_interval, max_interval)
         if config_id:
             config = auto_publish_store.get_config(config_id)
             config['topic_name'] = topic_data.get('name', '')
@@ -788,6 +790,14 @@ def update_auto_publish_config(config_id):
             updates['max_posts'] = data['max_posts']
         if 'is_active' in data:
             updates['is_active'] = int(data['is_active'])
+        if 'min_interval' in data:
+            updates['min_interval'] = data['min_interval']
+        if 'max_interval' in data:
+            updates['max_interval'] = data['max_interval']
+        if 'prompt_key' in data:
+            updates['prompt_key'] = data['prompt_key']
+        if 'publish_type' in data:
+            updates['publish_type'] = data['publish_type']
         
         if not updates:
             return jsonify({'success': False, 'error': '没有提供更新数据'}), 400

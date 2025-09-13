@@ -435,6 +435,16 @@
                             <span class="help-text">-1表示无限发布，其他数字表示最大发布次数</span>
                         </div>
                         <div class="form-row">
+                            <label>最小发布间隔(分钟):</label>
+                            <input type="number" id="auto-publish-min-interval" value="30" min="1" max="1440" placeholder="最小间隔">
+                            <span class="help-text">两次发布之间的最小间隔时间</span>
+                        </div>
+                        <div class="form-row">
+                            <label>最大发布间隔(分钟):</label>
+                            <input type="number" id="auto-publish-max-interval" value="60" min="1" max="1440" placeholder="最大间隔">
+                            <span class="help-text">两次发布之间的最大间隔时间</span>
+                        </div>
+                        <div class="form-row">
                             <button id="create-auto-publish-btn" class="btn-success">创建配置</button>
                         </div>
                     </div>
