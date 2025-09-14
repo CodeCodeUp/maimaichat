@@ -872,10 +872,43 @@ def toggle_auto_publish_config(config_id):
                 updated_config['topic_name'] = topic_data.get('name', '') if topic_data else ''
                 updated_config['topic_group'] = topic_data.get('group_name', '') if topic_data else ''
             
+            # 如果是激活配置，检查是否需要启动自动发布循环
+            if is_active:
+                # 检查该话题是否有待发布的内容
+                pending_posts = scheduled_posts_store.get_pending_posts()
+                has_pending_for_topic = any(
+                    post.get('auto_publish_id') == config_id 
+                    for post in pending_posts
+                )
+                
+                if not has_pending_for_topic:
+                    # 没有待发布内容，启动自动发布循环生成第一篇
+                    logger.info(f"自动发布配置 {config_id} 激活时无待发布内容，启动生成循环")
+                    
+                    try:
+                        from modules.auto_publish.generator import AutoPublishCycleGenerator
+                        cycle_generator = AutoPublishCycleGenerator()
+                        cycle_started = cycle_generator.start_auto_publish_cycle(config_id)
+                        
+                        if cycle_started:
+                            logger.info(f"自动发布配置 {config_id} 启动成功，已生成第一篇内容")
+                            message = f'配置已激活，已生成第一篇内容并安排发布'
+                        else:
+                            logger.warning(f"自动发布配置 {config_id} 启动失败")
+                            message = f'配置已激活，但内容生成失败，请检查日志'
+                    except Exception as e:
+                        logger.error(f"启动自动发布循环失败: {e}")
+                        message = f'配置已激活，但启动循环失败: {str(e)}'
+                else:
+                    logger.info(f"自动发布配置 {config_id} 激活时已有待发布内容，无需重新生成")
+                    message = f'配置已激活，检测到已有待发布内容'
+            else:
+                message = f'配置已停用'
+            
             return jsonify({
                 'success': True,
                 'data': updated_config,
-                'message': f'配置已{"激活" if is_active else "停用"}'
+                'message': message
             })
         else:
             return jsonify({'success': False, 'error': '切换配置状态失败'}), 500
