@@ -86,8 +86,8 @@ class Config:
         "headers": {
             'User-Agent': '{OnePlus PJD110} [Android 9/28]/MaiMai 6.6.82(60682)',
             'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8',
-            'Accept-Encoding': 'gzip',
-            'x-maimai-reqid': '30e2bc243fac46539e909165121b99ee'
+            'Accept-Encoding': 'gzip'
+            # x-maimai-reqid 将在每次请求时动态生成
         }
     }
     

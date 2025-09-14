@@ -59,12 +59,29 @@ class MaimaiAutoBot:
             # 查找并点击"我的内容"
             if self.device(text="我的内容").exists(timeout=5):
                 self.device(text="我的内容").click()
-                time.sleep(2)
+                time.sleep(0.5)
                 logger.info("成功点击'我的内容'")
                 return True
             else:
-                logger.warning("未找到'我的内容'按钮")
-                return False
+                logger.warning("未找到'我的内容'按钮，尝试返回后重试")
+                # 按返回键
+                self.device.press("back")
+                time.sleep(0.5)
+                
+                # 重新尝试查找"我的内容"
+                if self.device(text="我的内容").exists(timeout=5):
+                    self.device(text="我的内容").click()
+                    time.sleep(0.5)
+                    logger.info("重试成功：点击'我的内容'")
+                    return True
+                else:
+                    logger.warning("重试后仍未找到'我的内容'按钮，按home键重新开始")
+                    # 按home键回到桌面
+                    self.device.press("home")
+                    time.sleep(1)
+                    # 重新启动脉脉应用
+                    self.start_maimai_app()
+                    return False
         except Exception as e:
             logger.error(f"点击'我的内容'失败: {e}")
             return False
@@ -84,8 +101,8 @@ class MaimaiAutoBot:
                 start_y = screen_height * 0.7  # 起始位置在屏幕70%处
                 end_y = screen_height * 0.3    # 结束位置在屏幕30%处
                 
-                self.device.swipe(start_x, start_y, start_x, end_y, duration=0.1)
-                time.sleep(0.3)  # 每次滑动间隔0.3秒
+                self.device.swipe(start_x, start_y, start_x, end_y, duration=0.05)
+                
                 
             logger.info(f"完成 {duration_seconds} 秒下滑操作")
             return True
@@ -97,7 +114,7 @@ class MaimaiAutoBot:
         """返回上一页"""
         try:
             self.device.press("back")
-            time.sleep(random.uniform(0, 0.5))
+            time.sleep(random.uniform(0, 0.1))
             logger.info("执行返回操作")
             return True
         except Exception as e:
@@ -118,24 +135,27 @@ class MaimaiAutoBot:
                 cycle_count += 1
                 logger.info(f"--- 开始第 {cycle_count} 次循环 ---")
                 
-                # 1. 导航到"我"页面
-                if not self.navigate_to_me_page():
-                    logger.warning("导航到'我'页面失败，跳过本次循环")
-                    continue
+                # 1. 导航到"我"页面 (仅第一次)
+                if cycle_count == 1:
+                    if not self.navigate_to_me_page():
+                        logger.warning("导航到'我'页面失败，跳过本次循环")
+                        continue
                 
                 # 2. 点击"我的内容"
-                if not self.click_my_content():
-                    logger.warning("点击'我的内容'失败，跳过本次循环")
+                result = self.click_my_content()
+                if not result:
+                    logger.warning("点击'我的内容'失败，重置循环")
+                    cycle_count = 0  # 重置循环次数
                     continue
                 
-                # 3. 持续下拉5秒
-                self.scroll_down_for_duration(5)
+                # 3. 持续下拉2秒
+                self.scroll_down_for_duration(2)
                 
                 # 4. 返回
                 self.go_back()
                 
                 # 等待1-3秒再进行下一次循环
-                wait_time = random.uniform(0, 0.5)
+                wait_time = random.uniform(0, 0.3)
                 logger.info(f"等待 {wait_time:.1f} 秒后进行下一次循环")
                 time.sleep(wait_time)
                 

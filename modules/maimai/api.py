@@ -25,7 +25,17 @@ class MaimaiAPI:
         
         # 从配置中获取设备参数和请求头
         self.device_params = config.get('device_params', {})
-        self.headers = config.get('headers', {})
+        self.base_headers = config.get('headers', {})
+    
+    def _generate_request_id(self) -> str:
+        """生成随机的请求ID"""
+        return uuid.uuid4().hex
+    
+    def _get_headers(self) -> Dict[str, str]:
+        """获取带有动态请求ID的请求头"""
+        headers = self.base_headers.copy()
+        headers['x-maimai-reqid'] = self._generate_request_id()
+        return headers
     
     def extract_topic_id(self, url: str) -> Optional[str]:
         """
@@ -290,9 +300,12 @@ class MaimaiAPI:
                 logger.info(f"标题：{title}")
             
             # 发送请求（使用真实的请求头）
+            headers = self._get_headers()
+            logger.info(f"发送请求，请求ID: {headers.get('x-maimai-reqid')}")
+            
             response = requests.post(
                 full_url,
-                headers=self.headers,
+                headers=headers,
                 data=urlencode(post_data),
                 timeout=30
             )
@@ -351,7 +364,7 @@ class MaimaiAPI:
             
             response = requests.get(
                 full_url,
-                headers=self.headers,
+                headers=self._get_headers(),
                 timeout=10
             )
             

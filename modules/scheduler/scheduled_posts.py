@@ -59,7 +59,7 @@ class ScheduledPostsStoreDB:
                     logger.info(f"自动发布任务，使用默认间隔：30-60分钟，随机延迟：{delay_minutes}分钟")
         else:
             # 手动发布：5-20分钟间隔
-            delay_minutes = random.randint(5, 20)
+            delay_minutes = random.randint(10, 30)
             logger.info(f"手动发布任务，随机延迟：{delay_minutes}分钟")
         
         # 获取当前所有待发布任务的最晚发布时间
