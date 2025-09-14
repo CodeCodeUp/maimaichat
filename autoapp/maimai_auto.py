@@ -59,7 +59,7 @@ class MaimaiAutoBot:
             # 查找并点击"我的内容"
             if self.device(text="我的内容").exists(timeout=5):
                 self.device(text="我的内容").click()
-                time.sleep(0.5)
+                time.sleep(1)
                 logger.info("成功点击'我的内容'")
                 return True
             else:
@@ -148,8 +148,8 @@ class MaimaiAutoBot:
                     cycle_count = 0  # 重置循环次数
                     continue
                 
-                # 3. 持续下拉2秒
-                self.scroll_down_for_duration(2)
+                # 3. 持续下拉3秒
+                self.scroll_down_for_duration(3)
                 
                 # 4. 返回
                 self.go_back()
