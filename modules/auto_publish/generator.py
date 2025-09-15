@@ -248,15 +248,18 @@ class AutoPublishCycleGenerator:
                 else:
                     base_prompt = "你是一个资深新媒体编辑，擅长将话题梳理成适合脉脉的内容。"
                     logger.warning("配置未指定提示词且当前提示词不存在，使用默认提示词")
-            
+
+            # 同步历史对话中的提示词，确保与当前提示词一致
+            messages = self._sync_system_prompt(messages, base_prompt)
+
             # 检查是否已有system消息，避免重复添加提示词
             has_system_message = any(msg.get('role') == 'system' for msg in messages)
-            
+
             # 构建用户提示词
             if not has_system_message:
                 # 第一次或者没有system消息时，添加完整的提示词作为system消息
                 system_message = {
-                    "role": "system", 
+                    "role": "system",
                     "content": base_prompt
                 }
                 messages.insert(0, system_message)
@@ -428,3 +431,48 @@ class AutoPublishCycleGenerator:
             logger.info(f"已取消自动发布配置 {auto_publish_id} 的待发布任务")
         except Exception as e:
             logger.error(f"取消待发布任务失败: {e}")
+
+    def _sync_system_prompt(self, messages: List[Dict[str, Any]], current_prompt: str) -> List[Dict[str, Any]]:
+        """
+        同步历史对话中的system提示词，确保与当前提示词一致
+
+        Args:
+            messages: 历史对话消息列表
+            current_prompt: 当前的提示词内容
+
+        Returns:
+            更新后的消息列表
+        """
+        try:
+            # 查找历史消息中的system消息
+            system_message_index = None
+            for i, msg in enumerate(messages):
+                if msg.get('role') == 'system':
+                    system_message_index = i
+                    break
+
+            # 如果找到了system消息
+            if system_message_index is not None:
+                old_prompt = messages[system_message_index].get('content', '')
+
+                # 比较提示词内容是否一致
+                if old_prompt != current_prompt:
+                    logger.info("检测到提示词不一致，正在同步历史对话...")
+                    logger.info(f"旧提示词长度: {len(old_prompt)}")
+                    logger.info(f"新提示词长度: {len(current_prompt)}")
+
+                    # 更新system消息的content
+                    messages[system_message_index]['content'] = current_prompt
+
+                    logger.info("历史对话中的提示词已更新为当前提示词")
+                else:
+                    logger.info("历史对话中的提示词已是最新版本，无需更新")
+            else:
+                logger.info("历史对话中未找到system消息，后续将添加新的system消息")
+
+            return messages
+
+        except Exception as e:
+            logger.error(f"同步system提示词失败: {e}")
+            # 发生异常时返回原始messages，不影响主流程
+            return messages

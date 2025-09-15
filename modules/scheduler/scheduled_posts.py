@@ -181,7 +181,17 @@ class ScheduledPostsStoreDB:
         try:
             from modules.database.dao import AutoPublishConfigDAO
             auto_config_dao = AutoPublishConfigDAO()
-            
+
+            # 首先检查配置是否仍然活跃
+            config = auto_config_dao.find_by_id(auto_publish_id)
+            if not config:
+                logger.error(f"找不到自动发布配置: {auto_publish_id}，取消重试")
+                return
+
+            if not config.get('is_active'):
+                logger.info(f"自动发布配置 {auto_publish_id} 已停用，取消重试")
+                return
+
             # 检查是否可以重试
             if not auto_config_dao.can_retry(auto_publish_id):
                 logger.error(f"自动发布配置 {auto_publish_id} 已达到最大重试次数，停用配置")
@@ -191,16 +201,10 @@ class ScheduledPostsStoreDB:
                     'last_error': f"达到最大重试次数: {error_msg or '生成内容失败'}"
                 })
                 return
-            
+
             # 增加重试次数
             auto_config_dao.increment_retry(auto_publish_id, error_msg)
-            
-            # 获取配置信息用于计算重试延迟
-            config = auto_config_dao.find_by_id(auto_publish_id)
-            if not config:
-                logger.error(f"找不到自动发布配置: {auto_publish_id}")
-                return
-            
+
             # 计算重试延迟（基于重试次数：第1次重试5分钟，第2次10分钟，第3次15分钟）
             retry_count = config.get('retry_count', 1)
             retry_delay_minutes = retry_count * 5  # 5, 10, 15分钟
@@ -240,17 +244,28 @@ class ScheduledPostsStoreDB:
             if not auto_publish_id:
                 logger.error("重试任务缺少auto_publish_id")
                 return False
-            
+
+            # 首先检查配置是否仍然活跃
+            from modules.database.dao import AutoPublishConfigDAO
+            auto_config_dao = AutoPublishConfigDAO()
+            config = auto_config_dao.find_by_id(auto_publish_id)
+
+            if not config:
+                logger.error(f"重试任务: 找不到自动发布配置 {auto_publish_id}，取消重试")
+                return False
+
+            if not config.get('is_active'):
+                logger.info(f"重试任务: 自动发布配置 {auto_publish_id} 已停用，取消重试")
+                return False
+
             # 执行重试
             from modules.auto_publish.generator import AutoPublishCycleGenerator
             cycle_generator = AutoPublishCycleGenerator()
-            
+
             success = cycle_generator.continue_auto_publish_cycle(auto_publish_id)
             if success:
                 logger.info(f"重试任务执行成功: {auto_publish_id}")
                 # 成功时重置重试次数
-                from modules.database.dao import AutoPublishConfigDAO
-                auto_config_dao = AutoPublishConfigDAO()
                 auto_config_dao.reset_retry(auto_publish_id)
                 return True
             else:
