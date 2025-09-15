@@ -414,14 +414,15 @@ class PromptStoreDB:
         try:
             current_key = self.get_current_prompt_key()
             if not current_key:
-                # 如果没有设置当前提示词，使用第一个可用的提示词
+                # 如果没有设置当前提示词，返回第一个可用的提示词但不自动设置
                 all_prompts = self.get_all_prompts()
                 if all_prompts:
                     current_key = list(all_prompts.keys())[0]
-                    self.set_current_prompt_key(current_key)
+                    # 移除自动设置逻辑，避免重新创建 __current_prompt_key__
+                    # self.set_current_prompt_key(current_key)
                 else:
                     return '', ''
-            
+
             content = self.get_prompt(current_key, '')
             return current_key, content
         except Exception as e:
