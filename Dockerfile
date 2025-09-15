@@ -8,6 +8,7 @@ RUN sed -i 's/deb.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list.d/debi
 
 RUN apt-get update && apt-get install -y \
     gcc \
+    tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 # 使用清华大学PyPI镜像
@@ -22,5 +23,6 @@ EXPOSE 5000
 
 ENV PYTHONPATH=/app
 ENV FLASK_ENV=production
+ENV TZ=Asia/Shanghai
 
 CMD ["python", "app.py"]
