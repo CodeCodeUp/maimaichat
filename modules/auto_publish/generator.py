@@ -183,22 +183,28 @@ class AutoPublishCycleGenerator:
             return False
     
     def _get_or_create_conversation(self, topic_id: str, config: Dict[str, Any]) -> Dict[str, Any]:
-        """获取或创建AI对话历史"""
+        """获取或创建AI对话历史（基于配置ID）"""
         try:
-            # 查找现有对话
-            conversation = self.conversation_dao.get_latest_by_topic(topic_id)
-            
+            config_id = config['id']
+
+            # 优先根据配置ID查找现有对话
+            conversation = self.conversation_dao.get_latest_by_config(config_id)
+
             if not conversation:
-                # 创建新对话，初始时不包含任何消息，在第一次生成时添加system消息
-                conversation_id = f"auto_{topic_id}_{int(datetime.now().timestamp())}"
+                # 生成更短的对话ID（避免超过数据库字段长度限制）
+                import hashlib
+                short_config_id = hashlib.md5(config_id.encode()).hexdigest()[:8]
+                conversation_id = f"auto_{short_config_id}_{int(datetime.now().timestamp())}"
                 initial_messages = []  # 空的消息列表，system消息将在第一次生成时添加
-                
-                self.conversation_dao.create_with_messages(conversation_id, topic_id, initial_messages)
+
+                self.conversation_dao.create_with_messages(conversation_id, topic_id, initial_messages, config_id)
                 conversation = self.conversation_dao.find_by_id(conversation_id)
-                logger.info(f"创建了新对话，ID: {conversation_id}，初始消息为空")
-            
+                logger.info(f"为配置 {config_id} 创建了新对话，ID: {conversation_id}")
+            else:
+                logger.info(f"找到配置 {config_id} 的现有对话: {conversation['id']}")
+
             return conversation
-            
+
         except Exception as e:
             logger.error(f"获取或创建对话历史失败: {e}")
             return None

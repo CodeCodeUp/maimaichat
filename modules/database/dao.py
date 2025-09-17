@@ -455,9 +455,13 @@ class AutoPublishConfigDAO(BaseDAO):
         """查找所有激活的自动发布配置"""
         return self.find_all({'is_active': 1})
     
-    def find_by_topic_id(self, topic_id: str) -> Optional[Dict[str, Any]]:
-        """根据话题ID查找自动发布配置"""
-        result = self.find_all({'topic_id': topic_id})
+    def find_by_topic_id(self, topic_id: str) -> List[Dict[str, Any]]:
+        """根据话题ID查找所有自动发布配置（支持同话题多配置）"""
+        return self.find_all({'topic_id': topic_id})
+
+    def find_by_topic_and_prompt(self, topic_id: str, prompt_key: str) -> Optional[Dict[str, Any]]:
+        """根据话题ID和提示词键名查找特定的自动发布配置"""
+        result = self.find_all({'topic_id': topic_id, 'prompt_key': prompt_key})
         return result[0] if result else None
     
     def find_publishable(self) -> List[Dict[str, Any]]:
@@ -545,7 +549,7 @@ class AIConversationDAO(BaseDAO):
         super().__init__('ai_conversations')
     
     def _get_table_fields(self) -> List[str]:
-        return ['id', 'topic_id', 'messages', 'created_at', 'updated_at']
+        return ['id', 'topic_id', 'config_id', 'messages', 'created_at', 'updated_at']
     
     def _get_json_fields(self) -> List[str]:
         return ['messages']
@@ -558,15 +562,45 @@ class AIConversationDAO(BaseDAO):
         return self.find_all({'topic_id': topic_id})
     
     def get_latest_by_topic(self, topic_id: str) -> Optional[Dict[str, Any]]:
-        """获取话题的最新对话历史"""
+        """获取话题的最新对话历史（兼容旧版本，不建议使用）"""
         sql = f"""
-        SELECT * FROM `{self.table_name}` 
-        WHERE `topic_id` = %s 
-        ORDER BY `created_at` DESC 
+        SELECT * FROM `{self.table_name}`
+        WHERE `topic_id` = %s
+        ORDER BY `created_at` DESC
         LIMIT 1
         """
         result = self.db.execute_query(sql, (topic_id,))
         return result[0] if result else None
+
+    def get_latest_by_config(self, config_id: str) -> Optional[Dict[str, Any]]:
+        """根据配置ID获取最新的对话历史"""
+        sql = f"""
+        SELECT * FROM `{self.table_name}`
+        WHERE `config_id` = %s
+        ORDER BY `created_at` DESC
+        LIMIT 1
+        """
+        result = self.db.execute_query(sql, (config_id,))
+        return result[0] if result else None
+
+    def find_by_config_id(self, config_id: str) -> List[Dict[str, Any]]:
+        """根据配置ID查找所有对话历史"""
+        return self.find_all({'config_id': config_id})
+
+    def create_with_messages(self, conversation_id: str, topic_id: str, messages: List[Dict[str, Any]], config_id: str = None) -> bool:
+        """创建对话历史记录（增强版，支持配置ID）"""
+        try:
+            data = {
+                'id': conversation_id,
+                'topic_id': topic_id,
+                'config_id': config_id,  # 新增：支持配置ID关联
+                'messages': messages
+            }
+            result = self.insert(data)
+            return result is not None
+        except Exception as e:
+            logger.error(f"创建对话历史失败: {e}")
+            return False
     
     def add_message(self, conversation_id: str, role: str, content: str) -> bool:
         """为现有对话添加消息"""
@@ -587,18 +621,4 @@ class AIConversationDAO(BaseDAO):
             return self.update(conversation_id, {'messages': messages}) > 0
         except Exception as e:
             logger.error(f"添加消息失败: {e}")
-            return False
-    
-    def create_with_messages(self, conversation_id: str, topic_id: str, messages: List[Dict[str, Any]]) -> bool:
-        """创建新对话并设置消息"""
-        try:
-            data = {
-                'id': conversation_id,
-                'topic_id': topic_id,
-                'messages': messages
-            }
-            result = self.insert(data)
-            return result is not None
-        except Exception as e:
-            logger.error(f"创建对话失败: {e}")
             return False

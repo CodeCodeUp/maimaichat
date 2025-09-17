@@ -737,10 +737,10 @@ def create_auto_publish_config():
         if not topic_data:
             return jsonify({'success': False, 'error': '话题不存在'}), 404
         
-        # 检查是否已存在该话题的配置
-        existing_config = auto_publish_store.get_config_by_topic(topic_id)
+        # 检查是否已存在该话题和提示词的配置（修改支持同话题多配置）
+        existing_config = auto_publish_store.get_config_by_topic_and_prompt(topic_id, prompt_key)
         if existing_config:
-            return jsonify({'success': False, 'error': '该话题已配置自动发布'}), 400
+            return jsonify({'success': False, 'error': f'该话题的提示词"{prompt_key}"已配置自动发布'}), 400
         
         config_id = auto_publish_store.create_config(topic_id, max_posts, prompt_key, publish_type, min_interval, max_interval)
         if config_id:

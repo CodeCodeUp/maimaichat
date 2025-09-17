@@ -624,12 +624,20 @@ class AutoPublishStoreDB:
             logger.error(f"获取自动发布配置失败: {e}")
             return None
     
-    def get_config_by_topic(self, topic_id: str) -> Optional[Dict]:
-        """根据话题ID获取自动发布配置"""
+    def get_config_by_topic(self, topic_id: str) -> List[Dict]:
+        """根据话题ID获取所有自动发布配置（支持同话题多配置）"""
         try:
             return self.config_dao.find_by_topic_id(topic_id)
         except Exception as e:
             logger.error(f"根据话题获取自动发布配置失败: {e}")
+            return []
+
+    def get_config_by_topic_and_prompt(self, topic_id: str, prompt_key: str) -> Optional[Dict]:
+        """根据话题ID和提示词键名获取特定的自动发布配置"""
+        try:
+            return self.config_dao.find_by_topic_and_prompt(topic_id, prompt_key)
+        except Exception as e:
+            logger.error(f"根据话题和提示词获取自动发布配置失败: {e}")
             return None
     
     def get_all_configs(self) -> List[Dict]:
@@ -700,7 +708,7 @@ class AutoPublishStoreDB:
         """保存AI对话历史"""
         try:
             conversation_id = str(uuid.uuid4())
-            if self.conversation_dao.create_with_messages(conversation_id, topic_id, messages):
+            if self.conversation_dao.create_with_messages(conversation_id, topic_id, messages, config_id=None):
                 logger.info(f"保存对话历史成功: {conversation_id}")
                 return conversation_id
             return None
