@@ -151,7 +151,17 @@ class ScheduledPostDAO(BaseDAO):
         """
         result = self.db.execute_query(sql, (datetime.now(),))
         return [self._process_record(record) for record in result]
-    
+
+    def find_all_pending_posts(self) -> List[Dict[str, Any]]:
+        """查找所有待发布的任务（包括未到发布时间的）"""
+        sql = f"""
+        SELECT * FROM `{self.table_name}`
+        WHERE `status` = 'pending'
+        ORDER BY `scheduled_at` ASC
+        """
+        result = self.db.execute_query(sql)
+        return [self._process_record(record) for record in result]
+
     def get_next_post_to_publish(self) -> Optional[Dict[str, Any]]:
         """获取下一个要发布的任务"""
         pending_posts = self.find_pending_posts()

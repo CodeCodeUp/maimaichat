@@ -874,14 +874,14 @@ def toggle_auto_publish_config(config_id):
             
             # 如果是激活配置，检查是否需要启动自动发布循环
             if is_active:
-                # 检查该话题是否有待发布的内容
-                pending_posts = scheduled_posts_store.get_pending_posts()
-                has_pending_for_topic = any(
-                    post.get('auto_publish_id') == config_id 
-                    for post in pending_posts
+                # 检查该配置是否有待发布的内容（包括未到发布时间的）
+                all_pending_posts = scheduled_posts_store.get_all_pending_posts()
+                has_pending_for_config = any(
+                    post.get('auto_publish_id') == config_id
+                    for post in all_pending_posts
                 )
-                
-                if not has_pending_for_topic:
+
+                if not has_pending_for_config:
                     # 没有待发布内容，启动自动发布循环生成第一篇
                     logger.info(f"自动发布配置 {config_id} 激活时无待发布内容，启动生成循环")
                     

@@ -118,7 +118,15 @@ class ScheduledPostsStoreDB:
         except Exception as e:
             logger.error(f"获取待发布任务失败: {e}")
             return []
-    
+
+    def get_all_pending_posts(self) -> List[Dict]:
+        """获取所有待发布的任务（包括未到发布时间的）"""
+        try:
+            return self.dao.find_all_pending_posts()
+        except Exception as e:
+            logger.error(f"获取所有待发布任务失败: {e}")
+            return []
+
     def get_next_post_to_publish(self) -> Optional[Dict]:
         """获取下一个要发布的任务（只返回一个）"""
         try:
@@ -283,13 +291,22 @@ class ScheduledPostsStoreDB:
             return False
     
     def mark_as_failed(self, post_id: str, error: str) -> bool:
-        """标记任务为发布失败"""
+        """标记任务为发布失败，如果是自动发布任务则触发重试机制"""
         try:
             post = self.dao.find_by_id(post_id)
             if post:
+                # 检查是否是自动发布任务
+                auto_publish_id = post.get('auto_publish_id')
+
                 result = self.dao.mark_as_failed(post_id, error)
                 if result:
                     logger.error(f"任务 {post['title']} 发布失败: {error}")
+
+                    # 如果是自动发布任务，但不是重试任务，则触发重试机制
+                    if auto_publish_id and not self._is_retry_task(post):
+                        logger.info(f"检测到自动发布任务失败，准备重试：{auto_publish_id}")
+                        self._schedule_retry(auto_publish_id, error)
+
                 return result
             return False
         except Exception as e:
