@@ -104,9 +104,9 @@ class ScheduledPublisher:
                 self.scheduled_posts_store.mark_as_published(post_id)
                 logger.info(f"重试任务处理成功并已删除: {title}")
             else:
-                # 重试失败，删除当前重试任务（新的重试任务已在_handle_retry_task中创建）
-                self.scheduled_posts_store.mark_as_failed(post_id, "重试任务执行失败")
-                logger.error(f"重试任务处理失败: {title}")
+                # 重试失败，直接删除当前重试任务（新的重试任务已在_handle_retry_task中创建）
+                self.scheduled_posts_store.delete_post(post_id)
+                logger.error(f"重试任务处理失败，已删除: {title}")
             return
         
         logger.info(f"开始发布定时任务: {title} (发布方式: {'匿名' if publish_type == 'anonymous' else '实名'})")

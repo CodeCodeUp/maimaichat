@@ -298,12 +298,19 @@ class ScheduledPostsStoreDB:
                 # 检查是否是自动发布任务
                 auto_publish_id = post.get('auto_publish_id')
 
+                # 如果是重试任务，直接删除而不是标记为失败
+                if self._is_retry_task(post):
+                    result = self.dao.delete(post_id) > 0
+                    if result:
+                        logger.info(f"重试任务失败，已直接删除: {post['title']}")
+                    return result
+
                 result = self.dao.mark_as_failed(post_id, error)
                 if result:
                     logger.error(f"任务 {post['title']} 发布失败: {error}")
 
                     # 如果是自动发布任务，但不是重试任务，则触发重试机制
-                    if auto_publish_id and not self._is_retry_task(post):
+                    if auto_publish_id:
                         logger.info(f"检测到自动发布任务失败，准备重试：{auto_publish_id}")
                         self._schedule_retry(auto_publish_id, error)
 
@@ -375,11 +382,11 @@ class ScheduledPostsStoreDB:
         try:
             if delay_minutes is None:
                 delay_minutes = random.randint(5, 20)
-            
+
             # 获取当前所有待发布任务的最晚发布时间（排除当前要重新安排的任务）
             latest_scheduled_time = None
             pending_posts = self.dao.find_all({'status': 'pending'})
-            
+
             for post_data in pending_posts:
                 if post_data['id'] != post_id:
                     scheduled_time_str = post_data['scheduled_at']
@@ -387,10 +394,10 @@ class ScheduledPostsStoreDB:
                         scheduled_time = scheduled_time_str
                     else:
                         scheduled_time = datetime.fromisoformat(scheduled_time_str.replace('Z', '+00:00'))
-                    
+
                     if latest_scheduled_time is None or scheduled_time > latest_scheduled_time:
                         latest_scheduled_time = scheduled_time
-            
+
             if latest_scheduled_time:
                 # 如果还有其他待发布任务，排在最后
                 new_scheduled_at = latest_scheduled_time + timedelta(minutes=delay_minutes)
@@ -399,14 +406,35 @@ class ScheduledPostsStoreDB:
                 # 如果没有其他待发布任务，从当前时间开始
                 new_scheduled_at = datetime.now() + timedelta(minutes=delay_minutes)
                 logger.info(f"重新安排任务：基于当前时间 + {delay_minutes}分钟")
-            
+
             result = self.dao.reschedule_post(post_id, new_scheduled_at)
             if result:
                 post = self.dao.find_by_id(post_id)
                 if post:
                     logger.info(f"已重新安排任务发布时间: {post['title']} ({new_scheduled_at.strftime('%Y-%m-%d %H:%M:%S')})")
             return result
-            
+
         except Exception as e:
             logger.error(f"重新安排发布时间失败: {e}")
             return False
+
+    def cleanup_failed_retry_tasks(self) -> int:
+        """清理所有失败的重试任务"""
+        try:
+            # 查找所有失败状态的重试任务
+            failed_posts = self.dao.find_all({'status': 'failed'})
+            deleted_count = 0
+
+            for post in failed_posts:
+                if self._is_retry_task(post):
+                    if self.dao.delete(post['id']):
+                        deleted_count += 1
+                        logger.info(f"清理失败的重试任务: {post['title']}")
+
+            if deleted_count > 0:
+                logger.info(f"共清理了 {deleted_count} 个失败的重试任务")
+
+            return deleted_count
+        except Exception as e:
+            logger.error(f"清理失败重试任务异常: {e}")
+            return 0
