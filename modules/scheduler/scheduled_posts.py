@@ -142,15 +142,18 @@ class ScheduledPostsStoreDB:
             if post:
                 # 检查是否是自动发布任务
                 auto_publish_id = post.get('auto_publish_id')
-                
+                # 检查是否是重试任务
+                is_retry = self._is_retry_task(post)
+
                 result = self.dao.mark_as_published(post_id)
                 if result:
                     logger.info(f"任务 {post['title']} 发布成功，已删除")
-                    
-                    # 如果是自动发布任务，触发下一轮生成
-                    if auto_publish_id:
+
+                    # 如果是自动发布任务，但不是重试任务，才触发下一轮生成
+                    # 重试任务成功后不需要额外触发，因为重试本身已经恢复了循环
+                    if auto_publish_id and not is_retry:
                         self._trigger_next_auto_publish_cycle(auto_publish_id)
-                
+
                 return result
             return False
         except Exception as e:
