@@ -121,22 +121,30 @@ class AutoPublishCycleGenerator:
     def _generate_and_schedule_content(self, config: Dict[str, Any]) -> bool:
         """生成内容并安排发布"""
         try:
-            topic_id = config['topic_id']
+            topic_id = config.get('topic_id', '').strip()
             config_id = config['id']
-            
-            # 获取话题信息
-            topic = self.topic_dao.find_by_id(topic_id)
-            if not topic:
-                logger.error(f"找不到话题: {topic_id}")
-                return False
-            
+
+            # 获取话题信息（如果有topic_id的话）
+            topic = None
+            if topic_id:
+                topic = self.topic_dao.find_by_id(topic_id)
+                if not topic:
+                    logger.error(f"找不到话题: {topic_id}")
+                    return False
+                logger.info(f"使用绑定的话题: {topic['name']}")
+            else:
+                logger.info("当前配置未绑定话题，将进行无话题发布")
+
             # 获取或创建AI对话历史
             conversation = self._get_or_create_conversation(topic_id, config)
             
             # 生成内容
             content_data = self._generate_content_with_history(topic, conversation, config)
             if not content_data:
-                logger.error(f"生成内容失败，话题ID: {topic_id}")
+                if topic_id:
+                    logger.error(f"生成内容失败，话题ID: {topic_id}")
+                else:
+                    logger.error("生成内容失败（无话题配置）")
                 return False
             
             # 计算随机发布时间（使用配置的间隔）
@@ -151,16 +159,18 @@ class AutoPublishCycleGenerator:
             post_id = f"auto_{uuid.uuid4().hex[:12]}_{int(datetime.now().timestamp())}"
             
             # 创建定时发布任务
-            # 使用解析出的标题，如果没有标题则使用话题名称
+            # 使用解析出的标题，如果没有标题则使用话题名称或默认标题
             post_title = content_data.get('title') or ""
-            
+            if not post_title and topic:
+                post_title = f"关于{topic['name']}"
+
             post_data = {
                 'id': post_id,
                 'title': post_title,
                 'content': content_data['content'],
-                'topic_id': topic_id,
-                'circle_type': topic.get('circle_type', ''),
-                'topic_name': topic['name'],
+                'topic_id': topic_id if topic_id else None,
+                'circle_type': topic.get('circle_type', '') if topic else '',
+                'topic_name': topic['name'] if topic else '',
                 'publish_type': config.get('publish_type', 'anonymous'),  # 从配置中获取发布方式
                 'auto_publish_id': config_id,  # 标记为自动发布
                 'status': 'pending',
@@ -169,11 +179,14 @@ class AutoPublishCycleGenerator:
             
             result_id = self.scheduled_post_dao.insert(post_data)
             if result_id:
-                logger.info(f"已安排自动发布任务，{minutes}分钟后发布，任务ID: {post_id}")
-                
+                if topic_id:
+                    logger.info(f"已安排自动发布任务，{minutes}分钟后发布，任务ID: {post_id}，话题: {topic['name']}")
+                else:
+                    logger.info(f"已安排自动发布任务（无话题），{minutes}分钟后发布，任务ID: {post_id}")
+
                 # 更新对话历史
                 self._update_conversation_history(conversation['id'], content_data['messages'])
-                
+
                 return True
             
             return False
@@ -197,11 +210,21 @@ class AutoPublishCycleGenerator:
                 conversation_id = f"auto_{short_config_id}_{int(datetime.now().timestamp())}"
                 initial_messages = []  # 空的消息列表，system消息将在第一次生成时添加
 
-                self.conversation_dao.create_with_messages(conversation_id, topic_id, initial_messages, config_id)
+                # 如果没有topic_id，使用空字符串或None（根据数据库约束决定）
+                db_topic_id = topic_id if topic_id else ""
+
+                self.conversation_dao.create_with_messages(conversation_id, db_topic_id, initial_messages, config_id)
                 conversation = self.conversation_dao.find_by_id(conversation_id)
-                logger.info(f"为配置 {config_id} 创建了新对话，ID: {conversation_id}")
+
+                if topic_id:
+                    logger.info(f"为配置 {config_id} 创建了新对话，ID: {conversation_id}，话题ID: {topic_id}")
+                else:
+                    logger.info(f"为配置 {config_id} 创建了新对话（无话题），ID: {conversation_id}")
             else:
-                logger.info(f"找到配置 {config_id} 的现有对话: {conversation['id']}")
+                if topic_id:
+                    logger.info(f"找到配置 {config_id} 的现有对话: {conversation['id']}，话题ID: {topic_id}")
+                else:
+                    logger.info(f"找到配置 {config_id} 的现有对话（无话题）: {conversation['id']}")
 
             return conversation
 
@@ -321,7 +344,7 @@ class AutoPublishCycleGenerator:
                     'title': title,
                     'content': content,
                     'messages': messages,
-                    'topic_url': f"/topics/{topic['id']}"
+                    'topic_url': f"/topics/{topic['id']}" if topic else ""
                 }
             
             return None
