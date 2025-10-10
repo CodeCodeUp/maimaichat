@@ -109,13 +109,27 @@ class MaimaiPublisher {
     this.closePromptModalFooterBtn = document.getElementById('close-prompt-modal-footer');
     this.addPromptItemBtn = document.getElementById('add-prompt-item');
     this.saveAllPromptsBtn = document.getElementById('save-all-prompts');
-    this.promptListContainer = document.getElementById('prompt-list-container');
     this.currentPromptName = document.getElementById('current-prompt-name');
-    
+
+    // 简化的提示词管理元素
+    this.currentPromptIndex = document.getElementById('current-prompt-index');
+    this.totalPromptsCount = document.getElementById('total-prompts-count');
+    this.prevPromptBtn = document.getElementById('prev-prompt');
+    this.nextPromptBtn = document.getElementById('next-prompt');
+    this.deleteCurrentPromptBtn = document.getElementById('delete-current-prompt');
+    this.currentPromptNameInput = document.getElementById('current-prompt-name-input');
+    this.currentPromptContentInput = document.getElementById('current-prompt-content-input');
+    this.saveCurrentPromptBtn = document.getElementById('save-current-prompt');
+    this.promptQuickSelect = document.getElementById('prompt-quick-select');  // 新增：快速选择下拉框
+
     // 侧边栏快速提示词选择器
     this.sidebarPromptSelect = document.getElementById('sidebar-prompt-select');
     this.quickApplyPromptBtn = document.getElementById('quick-apply-prompt');
     this.sidebarCurrentPrompt = document.getElementById('sidebar-current-prompt');
+
+    // 简化的提示词管理状态
+    this.promptsArray = [];  // 所有提示词的数组
+    this.currentPromptIdx = 0;  // 当前显示的提示词索引
 
         // 其他
         this.statusDisplay = document.getElementById('status-display');
@@ -253,9 +267,18 @@ class MaimaiPublisher {
         this.managePromptsBtn?.addEventListener('click', () => this.openPromptModal());
         this.closePromptModalBtn?.addEventListener('click', () => this.closePromptModal());
         this.closePromptModalFooterBtn?.addEventListener('click', () => this.closePromptModal());
-        this.addPromptItemBtn?.addEventListener('click', () => this.addPromptItem());
+        this.addPromptItemBtn?.addEventListener('click', () => this.addNewPrompt());
         this.saveAllPromptsBtn?.addEventListener('click', () => this.saveAllPrompts());
-        
+        this.saveCurrentPromptBtn?.addEventListener('click', () => this.saveCurrentPrompt());
+
+        // 简化的提示词导航
+        this.prevPromptBtn?.addEventListener('click', () => this.showPreviousPrompt());
+        this.nextPromptBtn?.addEventListener('click', () => this.showNextPrompt());
+        this.deleteCurrentPromptBtn?.addEventListener('click', () => this.deleteCurrentPrompt());
+
+        // 快速选择下拉框
+        this.promptQuickSelect?.addEventListener('change', (e) => this.jumpToPrompt(e.target.value));
+
         // 侧边栏快速提示词选择
         this.quickApplyPromptBtn?.addEventListener('click', () => this.quickApplyPrompt());
         this.sidebarPromptSelect?.addEventListener('change', (e) => {
@@ -561,9 +584,14 @@ class MaimaiPublisher {
 
     openPromptModal() {
         if (!this.promptModal) return;
+
+        // 重置状态
+        this.currentPromptIdx = 0;
+
         this.updatePromptSelect();
         this.updateCurrentPromptDisplay();
-        this.renderPromptList();
+        this.convertPromptsToArray();
+        this.showCurrentPrompt();
         this.promptModal.style.display = 'block';
     }
 
@@ -572,77 +600,228 @@ class MaimaiPublisher {
         this.promptModal.style.display = 'none';
     }
 
-    renderPromptList() {
-        if (!this.promptListContainer) return;
-        
-        this.promptListContainer.innerHTML = '';
-        Object.entries(this.prompts).forEach(([key, value]) => {
-            this.promptListContainer.appendChild(this.createPromptItemCard(key, value));
-        });
+    // 将prompts对象转换为数组，方便导航
+    convertPromptsToArray() {
+        this.promptsArray = Object.entries(this.prompts).map(([key, value]) => ({ key, value }));
+
+        if (this.totalPromptsCount) {
+            this.totalPromptsCount.textContent = this.promptsArray.length;
+        }
+
+        // 更新快速选择下拉框
+        this.updatePromptQuickSelect();
     }
 
-    createPromptItemCard(key = '', value = '') {
-        const card = document.createElement('div');
-        card.className = 'prompt-item-card';
-        
-        const keyId = 'prompt_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-        
-        card.innerHTML = `
-            <div class="prompt-item-header">
-                <input type="text" class="prompt-key" value="${this.escapeHtml(key)}" placeholder="模板名称" data-key="${keyId}">
-                <div class="prompt-item-actions">
-                    <button class="btn-danger small delete-prompt" data-key="${keyId}">删除</button>
-                </div>
-            </div>
-            <textarea class="prompt-value" rows="6" placeholder="输入提示词内容..." data-key="${keyId}">${this.escapeHtml(value)}</textarea>
-        `;
-        
-        const deleteBtn = card.querySelector('.delete-prompt');
-        deleteBtn?.addEventListener('click', () => {
-            if (confirm('确定要删除这个提示词模板吗？')) {
-                card.remove();
+    // 更新快速选择下拉框
+    updatePromptQuickSelect() {
+        if (!this.promptQuickSelect) return;
+
+        this.promptQuickSelect.innerHTML = '<option value="">选择提示词跳转</option>';
+
+        this.promptsArray.forEach((prompt, index) => {
+            const option = document.createElement('option');
+            option.value = index;
+            option.textContent = `${index + 1}. ${prompt.key}`;
+            if (index === this.currentPromptIdx) {
+                option.selected = true;
             }
+            this.promptQuickSelect.appendChild(option);
         });
-        
-        return card;
     }
 
-    addPromptItem() {
-        if (!this.promptListContainer) return;
-        this.promptListContainer.appendChild(this.createPromptItemCard());
+    // 跳转到指定提示词
+    jumpToPrompt(indexStr) {
+        if (!indexStr) return;
+
+        const index = parseInt(indexStr);
+        if (index >= 0 && index < this.promptsArray.length) {
+            this.currentPromptIdx = index;
+            this.showCurrentPrompt();
+        }
     }
 
+    // 显示当前提示词
+    showCurrentPrompt() {
+        if (this.promptsArray.length === 0) {
+            this.showEmptyState();
+            return;
+        }
+
+        // 确保索引在有效范围内
+        this.currentPromptIdx = Math.max(0, Math.min(this.currentPromptIdx, this.promptsArray.length - 1));
+
+        const currentPrompt = this.promptsArray[this.currentPromptIdx];
+
+        // 更新UI
+        if (this.currentPromptIndex) {
+            this.currentPromptIndex.textContent = this.currentPromptIdx + 1;
+        }
+
+        if (this.currentPromptNameInput) {
+            this.currentPromptNameInput.value = currentPrompt.key;
+        }
+
+        if (this.currentPromptContentInput) {
+            this.currentPromptContentInput.value = currentPrompt.value;
+        }
+
+        // 更新快速选择下拉框的选中状态
+        if (this.promptQuickSelect) {
+            this.promptQuickSelect.value = this.currentPromptIdx;
+        }
+
+        // 更新导航按钮状态
+        this.updateNavigationButtons();
+    }
+
+    // 更新导航按钮状态
+    updateNavigationButtons() {
+        if (this.prevPromptBtn) {
+            this.prevPromptBtn.disabled = this.currentPromptIdx === 0;
+        }
+
+        if (this.nextPromptBtn) {
+            this.nextPromptBtn.disabled = this.currentPromptIdx >= this.promptsArray.length - 1;
+        }
+
+        if (this.deleteCurrentPromptBtn) {
+            this.deleteCurrentPromptBtn.disabled = this.promptsArray.length === 0;
+        }
+    }
+
+    // 显示空状态
+    showEmptyState() {
+        if (this.currentPromptIndex) {
+            this.currentPromptIndex.textContent = '0';
+        }
+
+        if (this.currentPromptNameInput) {
+            this.currentPromptNameInput.value = '';
+            this.currentPromptNameInput.placeholder = '没有提示词，点击新增创建';
+        }
+
+        if (this.currentPromptContentInput) {
+            this.currentPromptContentInput.value = '';
+            this.currentPromptContentInput.placeholder = '没有提示词，点击新增创建';
+        }
+
+        this.updateNavigationButtons();
+    }
+
+    // 导航方法
+    showPreviousPrompt() {
+        if (this.currentPromptIdx > 0) {
+            this.currentPromptIdx--;
+            this.showCurrentPrompt();
+        }
+    }
+
+    showNextPrompt() {
+        if (this.currentPromptIdx < this.promptsArray.length - 1) {
+            this.currentPromptIdx++;
+            this.showCurrentPrompt();
+        }
+    }
+
+    // 新增提示词
+    addNewPrompt() {
+        const newKey = `新提示词${Date.now()}`;
+        const newValue = '';
+
+        // 添加到prompts对象
+        this.prompts[newKey] = newValue;
+
+        // 重新转换数组
+        this.convertPromptsToArray();
+
+        // 跳转到新提示词
+        this.currentPromptIdx = this.promptsArray.length - 1;
+        this.showCurrentPrompt();
+
+        // 聚焦到名称输入框
+        if (this.currentPromptNameInput) {
+            this.currentPromptNameInput.focus();
+            this.currentPromptNameInput.select();
+        }
+    }
+
+    // 删除当前提示词
+    deleteCurrentPrompt() {
+        if (this.promptsArray.length === 0) return;
+
+        const currentPrompt = this.promptsArray[this.currentPromptIdx];
+        if (!confirm(`确定要删除提示词"${currentPrompt.key}"吗？`)) {
+            return;
+        }
+
+        // 从prompts对象中删除
+        delete this.prompts[currentPrompt.key];
+
+        // 重新转换数组
+        this.convertPromptsToArray();
+
+        // 调整当前索引
+        if (this.currentPromptIdx >= this.promptsArray.length) {
+            this.currentPromptIdx = Math.max(0, this.promptsArray.length - 1);
+        }
+
+        // 重新显示
+        this.showCurrentPrompt();
+
+        this.updateStatus('提示词已删除', 'success');
+    }
+
+    // 保存当前提示词
+    saveCurrentPrompt() {
+        if (!this.currentPromptNameInput || !this.currentPromptContentInput) return;
+
+        const newName = this.currentPromptNameInput.value.trim();
+        const newContent = this.currentPromptContentInput.value.trim();
+
+        if (!newName) {
+            this.updateStatus('请输入提示词名称', 'error');
+            return;
+        }
+
+        if (this.promptsArray.length > 0) {
+            const currentPrompt = this.promptsArray[this.currentPromptIdx];
+            const oldName = currentPrompt.key;
+
+            // 如果名称改变了，需要删除旧的，添加新的
+            if (oldName !== newName) {
+                delete this.prompts[oldName];
+                this.prompts[newName] = newContent;
+
+                // 重新转换数组并找到新位置
+                this.convertPromptsToArray();
+                this.currentPromptIdx = this.promptsArray.findIndex(p => p.key === newName);
+            } else {
+                // 只是内容改变
+                this.prompts[newName] = newContent;
+                currentPrompt.value = newContent;
+            }
+        } else {
+            // 新增提示词
+            this.prompts[newName] = newContent;
+            this.convertPromptsToArray();
+            this.currentPromptIdx = this.promptsArray.findIndex(p => p.key === newName);
+        }
+
+        this.showCurrentPrompt();
+        this.updateStatus('当前提示词已保存', 'success');
+    }
+
+    // 保存全部提示词到服务器
     async saveAllPrompts() {
-        if (!this.promptListContainer) return;
-        
-        const cards = this.promptListContainer.querySelectorAll('.prompt-item-card');
-        const newPrompts = {};
-        
-        cards.forEach(card => {
-            const keyInput = card.querySelector('.prompt-key');
-            const valueTextarea = card.querySelector('.prompt-value');
-            
-            if (keyInput && valueTextarea) {
-                const key = keyInput.value.trim();
-                const value = valueTextarea.value.trim();
-                
-                if (key) {
-                    newPrompts[key] = value;
-                }
-            }
-        });
-        
-        if (Object.keys(newPrompts).length === 0) {
+        if (Object.keys(this.prompts).length === 0) {
             this.updateStatus('至少需要一个有效的提示词模板', 'error');
             return;
         }
-        
-        this.prompts = newPrompts;
+
         const success = await this.savePrompts();
         if (success) {
             this.updatePromptSelect();
             this.updateCurrentPromptDisplay();
-            this.closePromptModal();
             this.updateStatus('提示词模板保存成功', 'success');
         }
     }

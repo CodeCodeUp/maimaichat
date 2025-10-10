@@ -989,6 +989,108 @@ textarea {
     color: var(--primary-600);
 }
 
+/* --- 简化的提示词管理样式 --- */
+.prompt-simple-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--bg-surface-secondary);
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--border-color);
+    margin-bottom: 1rem;
+}
+
+.prompt-counter {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.prompt-quick-select {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.prompt-quick-select .small-label {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    min-width: fit-content;
+}
+
+.prompt-nav-buttons {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+}
+
+.prompt-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+}
+
+.prompt-counter {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.prompt-nav-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.prompt-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.prompt-single-editor {
+    background: var(--bg-surface);
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--border-color);
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.prompt-name-input {
+    margin-bottom: 1rem;
+}
+
+.prompt-name-input input {
+    font-size: 1.1rem;
+    font-weight: 500;
+    padding: 0.75rem;
+}
+
+.prompt-content-input textarea {
+    width: 100%;
+    font-family: 'SF Mono', Monaco, 'Inconsolata', 'Roboto Mono', monospace;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    padding: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    resize: vertical;
+    min-height: 300px;
+}
+
+.prompt-save-section {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+}
+
+.prompt-save-section button {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+}
+
 /* --- 话题分组样式 --- */
 .topic-group-section {
     background: var(--success-50);

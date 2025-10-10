@@ -1183,13 +1183,89 @@ def test_connection():
 
 @app.route('/api/prompts', methods=['GET'])
 def get_prompts():
-    """获取所有提示词"""
+    """获取所有提示词（支持分页和搜索）"""
     try:
         logger.info("API /api/prompts GET 被调用")
-        
-        prompts = prompt_store.load_prompts()
-        
-        return jsonify({'success': True, 'data': prompts})
+
+        # 获取查询参数
+        search = request.args.get('search', '').strip()
+        category = request.args.get('category', '').strip()
+        page = int(request.args.get('page', 1))
+        per_page = request.args.get('per_page', 'all')
+
+        # 加载所有提示词
+        all_prompts = prompt_store.load_prompts()
+
+        # 应用搜索过滤
+        filtered_prompts = {}
+        for key, value in all_prompts.items():
+            should_include = True
+
+            # 搜索过滤
+            if search:
+                search_lower = search.lower()
+                key_match = key.lower().find(search_lower) != -1
+                value_match = value.lower().find(search_lower) != -1
+                should_include = should_include and (key_match or value_match)
+
+            # 分类过滤（基于关键词）
+            if category:
+                text = (key + ' ' + value).lower()
+                category_match = False
+
+                if category == 'news':
+                    category_match = '新闻' in text or '资讯' in text or '报道' in text
+                elif category == 'marketing':
+                    category_match = '营销' in text or '推广' in text or '宣传' in text
+                elif category == 'tech':
+                    category_match = '技术' in text or '编程' in text or '开发' in text
+                elif category == 'general':
+                    category_match = '通用' in text or '基础' in text or '常用' in text
+
+                should_include = should_include and category_match
+
+            if should_include:
+                filtered_prompts[key] = value
+
+        # 计算分页
+        total_items = len(filtered_prompts)
+
+        if per_page == 'all':
+            # 返回所有结果
+            result_prompts = filtered_prompts
+            total_pages = 1
+            current_page = 1
+        else:
+            # 分页处理
+            per_page_int = int(per_page)
+            total_pages = max(1, (total_items + per_page_int - 1) // per_page_int)
+            current_page = min(page, total_pages)
+
+            # 获取当前页的数据
+            start_idx = (current_page - 1) * per_page_int
+            end_idx = start_idx + per_page_int
+
+            items = list(filtered_prompts.items())
+            page_items = items[start_idx:end_idx]
+            result_prompts = dict(page_items)
+
+        return jsonify({
+            'success': True,
+            'data': result_prompts,
+            'pagination': {
+                'current_page': current_page,
+                'total_pages': total_pages,
+                'total_items': total_items,
+                'per_page': per_page,
+                'has_next': current_page < total_pages,
+                'has_prev': current_page > 1
+            },
+            'filters': {
+                'search': search,
+                'category': category
+            }
+        })
+
     except Exception as e:
         logger.error(f"获取提示词失败: {e}")
         import traceback
@@ -1259,6 +1335,103 @@ def set_current_prompt():
             
     except Exception as e:
         logger.error(f"设置当前提示词失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/prompts/search', methods=['GET'])
+def search_prompts():
+    """搜索提示词"""
+    try:
+        # 获取搜索参数
+        query = request.args.get('q', '').strip()
+        if not query:
+            return jsonify({'success': False, 'error': '缺少搜索关键词'}), 400
+
+        # 加载所有提示词
+        all_prompts = prompt_store.load_prompts()
+
+        # 执行搜索
+        search_results = []
+        query_lower = query.lower()
+
+        for key, value in all_prompts.items():
+            relevance_score = 0
+
+            # 名称匹配（权重更高）
+            if query_lower in key.lower():
+                relevance_score += 10
+                if key.lower().startswith(query_lower):
+                    relevance_score += 5  # 前缀匹配额外加分
+
+            # 内容匹配
+            if query_lower in value.lower():
+                relevance_score += 5
+
+            # 只包含相关的结果
+            if relevance_score > 0:
+                search_results.append({
+                    'key': key,
+                    'value': value,
+                    'relevance': relevance_score
+                })
+
+        # 按相关性排序
+        search_results.sort(key=lambda x: x['relevance'], reverse=True)
+
+        # 限制返回结果数量
+        max_results = int(request.args.get('limit', 20))
+        search_results = search_results[:max_results]
+
+        return jsonify({
+            'success': True,
+            'data': search_results,
+            'total_found': len(search_results),
+            'query': query
+        })
+
+    except Exception as e:
+        logger.error(f"搜索提示词失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/prompts/categories', methods=['GET'])
+def get_prompt_categories():
+    """获取提示词分类统计"""
+    try:
+        # 加载所有提示词
+        all_prompts = prompt_store.load_prompts()
+
+        # 分类统计
+        categories = {
+            'news': 0,
+            'marketing': 0,
+            'tech': 0,
+            'general': 0,
+            'custom': 0
+        }
+
+        for key, value in all_prompts.items():
+            text = (key + ' ' + value).lower()
+
+            if '新闻' in text or '资讯' in text or '报道' in text:
+                categories['news'] += 1
+            elif '营销' in text or '推广' in text or '宣传' in text:
+                categories['marketing'] += 1
+            elif '技术' in text or '编程' in text or '开发' in text:
+                categories['tech'] += 1
+            elif '通用' in text or '基础' in text or '常用' in text:
+                categories['general'] += 1
+            else:
+                categories['custom'] += 1
+
+        return jsonify({
+            'success': True,
+            'data': categories,
+            'total_prompts': len(all_prompts)
+        })
+
+    except Exception as e:
+        logger.error(f"获取提示词分类统计失败: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

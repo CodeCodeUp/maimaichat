@@ -324,12 +324,42 @@
                 <!-- 管理区域 -->
                 <div class="prompt-management-section">
                     <h4>管理模板</h4>
-                    <div class="prompt-toolbar">
-                        <button id="add-prompt-item" class="btn-primary small">新增模板</button>
-                        <button id="save-all-prompts" class="btn-success small">保存全部</button>
+
+                    <!-- 简单导航栏 -->
+                    <div class="prompt-simple-nav">
+                        <div class="prompt-counter">
+                            <span id="current-prompt-index">1</span> / <span id="total-prompts-count">0</span>
+                        </div>
+                        <div class="prompt-quick-select">
+                            <label class="small-label">快速选择:</label>
+                            <select id="prompt-quick-select" class="grow">
+                                <option value="">选择提示词跳转</option>
+                            </select>
+                        </div>
+                        <div class="prompt-nav-buttons">
+                            <button id="prev-prompt" class="btn-secondary small">← 上一个</button>
+                            <button id="next-prompt" class="btn-secondary small">下一个 →</button>
+                        </div>
+                        <div class="prompt-actions">
+                            <button id="add-prompt-item" class="btn-primary small">新增</button>
+                            <button id="delete-current-prompt" class="btn-danger small">删除</button>
+                        </div>
                     </div>
-                    <div id="prompt-list-container" class="prompt-list-container">
-                        <!-- 提示词列表动态生成 -->
+
+                    <!-- 单个提示词编辑器 -->
+                    <div class="prompt-single-editor">
+                        <div class="prompt-name-input">
+                            <input type="text" id="current-prompt-name-input" placeholder="提示词名称" class="grow">
+                        </div>
+                        <div class="prompt-content-input">
+                            <textarea id="current-prompt-content-input" rows="12" placeholder="输入提示词内容..."></textarea>
+                        </div>
+                    </div>
+
+                    <!-- 保存按钮 -->
+                    <div class="prompt-save-section">
+                        <button id="save-current-prompt" class="btn-success">保存当前修改</button>
+                        <button id="save-all-prompts" class="btn-success">保存全部</button>
                     </div>
                 </div>
             </div>
