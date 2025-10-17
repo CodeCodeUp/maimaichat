@@ -27,8 +27,8 @@ class ScheduledPostsStoreDB:
         """保存定时发布数据到数据库（兼容原接口，实际无需操作）"""
         pass
     
-    def add_post(self, title: str, content: str, topic_url: str = None, 
-                 topic_id: str = None, circle_type: str = None, topic_name: str = None, 
+    def add_post(self, title: str, content: str, topic_url: str = None,
+                 topic_id: str = None, circle_type: str = None, topic_name: str = None,
                  auto_publish_id: str = None, publish_type: str = 'anonymous',
                  min_interval: int = None, max_interval: int = None) -> str:
         """添加定时发布任务，基于最后一篇待发布时间计算发布时间"""
@@ -353,7 +353,7 @@ class ScheduledPostsStoreDB:
             logger.error(f"删除发布任务失败: {e}")
             return False
     
-    def update_post(self, post_id: str, title: str = None, content: str = None) -> bool:
+    def update_post(self, post_id: str, title: str = None, content: str = None, scheduled_at: datetime = None) -> bool:
         """更新定时发布任务"""
         try:
             update_data = {}
@@ -361,7 +361,9 @@ class ScheduledPostsStoreDB:
                 update_data['title'] = title
             if content is not None:
                 update_data['content'] = content
-            
+            if scheduled_at is not None:
+                update_data['scheduled_at'] = scheduled_at
+
             if update_data:
                 result = self.dao.update(post_id, update_data) > 0
                 if result:

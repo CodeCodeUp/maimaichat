@@ -554,7 +554,7 @@ def schedule_publish():
     """添加定时发布任务"""
     try:
         data = request.get_json()
-        
+
         # 验证必需参数
         if not data or 'content' not in data:
             return jsonify({
@@ -578,7 +578,7 @@ def schedule_publish():
             logger.info(f"使用选择的话题：ID={topic_id}, circle_type={circle_type}")
             topic_data = topic_store.get_topic(topic_id)
             topic_name = topic_data.get('name') if topic_data else None
-                
+
         elif topic_url:
             # 使用话题链接提取
             logger.info(f"使用话题链接：{topic_url}")
@@ -592,8 +592,8 @@ def schedule_publish():
             topic_url=topic_url,
             topic_id=topic_id,
             circle_type=circle_type,
-            topic_name=topic_name,  # 新增：保存话题名称
-            publish_type=publish_type  # 新增：保存发布方式
+            topic_name=topic_name,
+            publish_type=publish_type
         )
 
         # 获取任务信息以返回预计发布时间
@@ -653,15 +653,37 @@ def update_scheduled_post(post_id):
         data = request.get_json()
         if not data:
             return jsonify({'success': False, 'error': '缺少请求数据'}), 400
-        
+
         title = data.get('title')
         content = data.get('content')
-        
-        success = scheduled_posts_store.update_post(post_id, title, content)
+        scheduled_at_str = data.get('scheduled_at')
+
+        # 如果提供了scheduled_at，转换为datetime对象
+        scheduled_at = None
+        if scheduled_at_str:
+            try:
+                # 支持多种日期格式
+                from datetime import datetime
+                # 尝试ISO格式（前端datetime-local发送的格式）
+                scheduled_at = datetime.fromisoformat(scheduled_at_str.replace('Z', '+00:00'))
+            except ValueError:
+                try:
+                    # 尝试标准格式 YYYY-MM-DD HH:MM:SS
+                    scheduled_at = datetime.strptime(scheduled_at_str, '%Y-%m-%d %H:%M:%S')
+                except ValueError:
+                    return jsonify({'success': False, 'error': '日期格式错误，请使用ISO格式或YYYY-MM-DD HH:MM:SS'}), 400
+
+        success = scheduled_posts_store.update_post(post_id, title, content, scheduled_at)
         if not success:
             return jsonify({'success': False, 'error': '任务不存在或未发生更新'}), 404
-        
-        return jsonify({'success': True, 'message': '任务更新成功'})
+
+        # 获取更新后的任务信息返回给前端
+        updated_post = scheduled_posts_store.get_post(post_id)
+        return jsonify({
+            'success': True,
+            'message': '任务更新成功',
+            'data': updated_post
+        })
     except Exception as e:
         logger.error(f"更新定时发布任务异常：{str(e)}")
         return jsonify({'success': False, 'error': f'更新定时发布任务时发生错误：{str(e)}'}), 500

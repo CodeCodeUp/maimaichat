@@ -2656,13 +2656,19 @@ class MaimaiPublisher {
         } else if (post.topic_url) {
             topicInfo = `<div class="topic-info">话题链接: ${this.escapeHtml(post.topic_url)}</div>`;
         }
-        
+
+        // 发布方式信息
+        const publishTypeText = post.publish_type === 'anonymous' ? '匿名发布' : '实名发布';
+        const metaInfo = `<div class="post-meta-info">
+            <small><strong>发布方式:</strong> ${this.escapeHtml(publishTypeText)}</small>
+        </div>`;
+
         // 队列序号显示
         let queueBadge = '';
         if (queueNumber) {
             queueBadge = `<div class="queue-number">#${queueNumber}</div>`;
         }
-        
+
         item.innerHTML = `
             <div class="post-header">
                 <div class="post-title-container">
@@ -2672,6 +2678,7 @@ class MaimaiPublisher {
                 <div class="post-status ${statusClass}">${statusText}</div>
             </div>
             ${topicInfo}
+            ${metaInfo}
             <div class="post-content">${this.escapeHtml(post.content.substring(0, 100))}...</div>
             <div class="post-meta">
                 <small>预计发布: ${scheduledTime}</small>
@@ -2719,8 +2726,9 @@ class MaimaiPublisher {
                         <label>内容:</label>
                         <textarea id="edit-content" rows="10" placeholder="文章内容">${this.escapeHtml(post.content)}</textarea>
                     </div>
-                    <div class="post-info">
-                        <small>预计发布时间: ${new Date(post.scheduled_at).toLocaleString()}</small>
+                    <div class="row">
+                        <label>发布时间:</label>
+                        <input type="datetime-local" id="edit-scheduled-time" value="${this.formatDateTimeLocal(post.scheduled_at)}">
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -2756,23 +2764,37 @@ class MaimaiPublisher {
         saveBtn.addEventListener('click', async () => {
             const title = titleInput.value.trim();
             const content = contentTextarea.value.trim();
-            
+            const scheduledTimeInput = modal.querySelector('#edit-scheduled-time');
+            const scheduledTime = scheduledTimeInput ? scheduledTimeInput.value : null;
+
             if (!content) {
                 alert('内容不能为空');
                 return;
             }
-            
+
             try {
                 this.setButtonLoading(saveBtn, true);
-                
+
+                const updateData = {
+                    title,
+                    content
+                };
+
+                // 如果修改了发布时间，添加到更新数据中
+                if (scheduledTime) {
+                    // datetime-local的值格式是 YYYY-MM-DDTHH:MM
+                    // 需要转换为后端接受的格式
+                    updateData.scheduled_at = scheduledTime + ':00'; // 添加秒数，转为 YYYY-MM-DDTHH:MM:SS
+                }
+
                 const response = await fetch(`/api/scheduled-posts/${post.id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title, content })
+                    body: JSON.stringify(updateData)
                 });
-                
+
                 const result = await response.json();
-                
+
                 if (result.success) {
                     this.updateStatus('定时发布任务修改成功', 'success');
                     this.loadScheduledPosts(); // 刷新列表
@@ -2904,6 +2926,32 @@ class MaimaiPublisher {
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#039;');
+    }
+
+    formatDateTimeLocal(datetimeStr) {
+        /**
+         * 将ISO日期时间字符串转换为datetime-local输入框所需的格式 (YYYY-MM-DDTHH:MM)
+         * @param {string} datetimeStr - ISO格式的日期时间字符串
+         * @returns {string} - datetime-local格式的字符串
+         */
+        if (!datetimeStr) return '';
+
+        try {
+            const date = new Date(datetimeStr);
+
+            // 获取本地时间的各个部分
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+
+            // 返回datetime-local格式: YYYY-MM-DDTHH:MM
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        } catch (error) {
+            console.error('日期格式转换失败:', error);
+            return '';
+        }
     }
 
     // ===== AI配置管理 =====
@@ -3457,15 +3505,19 @@ class MaimaiPublisher {
             return `
                 <div class="auto-publish-config-item">
                     <div class="auto-publish-config-info">
-                        <div class="config-title">${config.topic_name || '未知话题'}</div>
+                        <div class="config-title">${config.topic_name || '无话题自动发布'}</div>
                         <div class="config-details">
                             <div class="config-detail-item">
                                 <span class="config-detail-label">话题ID:</span>
-                                <span>${config.topic_id}</span>
+                                <span>${config.topic_id || '无话题'}</span>
                             </div>
                             <div class="config-detail-item">
                                 <span class="config-detail-label">分组:</span>
                                 <span>${config.topic_group || '未分组'}</span>
+                            </div>
+                            <div class="config-detail-item">
+                                <span class="config-detail-label">使用提示词:</span>
+                                <span>${config.prompt_key || '当前选定提示词'}</span>
                             </div>
                             <div class="config-detail-item">
                                 <span class="config-detail-label">发布方式:</span>
@@ -3543,10 +3595,11 @@ class MaimaiPublisher {
             const minInterval = parseInt(document.getElementById('auto-publish-min-interval')?.value || '30');
             const maxInterval = parseInt(document.getElementById('auto-publish-max-interval')?.value || '60');
             
-            if (!topicId) {
-                this.updateStatus('请选择话题', 'error');
-                return;
-            }
+            // topic_id 现在是可选的，无需强制要求
+            // if (!topicId) {
+            //     this.updateStatus('请选择话题', 'error');
+            //     return;
+            // }
             
             // 验证间隔设置
             if (minInterval < 1 || maxInterval < 1) {
