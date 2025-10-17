@@ -374,9 +374,10 @@ class AutoPublishCycleGenerator:
             logger.info(content)
             logger.info("="*50)
             
-            # 更强的正则表达式，处理content中包含双引号的情况
+            # 更强的正则表达式，处理content中包含中文双引号等特殊字符的情况
+            # 使用贪婪匹配确保能完整捕获内容，并在后面添加[,}]确保匹配到正确的结束位置
             title_pattern = r'"title"\s*:\s*"((?:[^"\\]|\\.)*)"\s*[,}]'
-            content_pattern = r'"content"\s*:\s*"((?:[^"\\]|\\.)*)"'
+            content_pattern = r'"content"\s*:\s*"((?:[^"\\]|\\.)*)"\s*[,}]'
             
             titles = re.findall(title_pattern, content, re.DOTALL)
             contents = re.findall(content_pattern, content, re.DOTALL)
