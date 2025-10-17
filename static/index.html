@@ -145,6 +145,15 @@
                     </div>
                 </div>
                 <div class="section">
+                    <div class="section-title">草稿箱</div>
+                    <div class="row">
+                        <button id="parse-json-btn" class="btn-info grow">JSON解析</button>
+                    </div>
+                    <div class="row">
+                        <button id="manage-drafts" class="btn-success grow">管理草稿</button>
+                    </div>
+                </div>
+                <div class="section">
                     <div class="section-title">状态</div>
                     <div id="status-display" class="status-display"><p>等待操作...</p></div>
                 </div>
@@ -495,6 +504,195 @@
             <div class="modal-footer">
                 <button id="refresh-auto-publish" class="btn-primary">刷新列表</button>
                 <button id="close-auto-publish-modal-footer" class="btn-secondary">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JSON解析弹窗 -->
+    <div id="parse-json-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>JSON解析到草稿箱</h3>
+                <button class="modal-close" id="close-parse-json-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="parse-json-section">
+                    <h4>粘贴JSON内容</h4>
+                    <textarea id="json-content-input" rows="10" placeholder='粘贴AI生成的JSON内容，格式：[{"title":"标题1","content":"内容1"},{"title":"标题2","content":"内容2"}]'></textarea>
+
+                    <h4>话题设置（可选）</h4>
+                    <div class="row">
+                        <select id="parse-json-topic-group" class="small" style="width: 150px;">
+                            <option value="">所有分组</option>
+                        </select>
+                        <select id="parse-json-topic-select" class="grow">
+                            <option value="">选择话题（可选）</option>
+                        </select>
+                    </div>
+
+                    <div class="row">
+                        <label class="small-label">发布方式:</label>
+                        <select id="parse-json-publish-type" class="small" style="width: 120px;">
+                            <option value="anonymous">匿名发布</option>
+                            <option value="real_name">实名发布</option>
+                        </select>
+                    </div>
+
+                    <div class="parse-json-preview" id="parse-json-preview" style="display: none;">
+                        <h4>解析预览</h4>
+                        <div class="preview-stats">
+                            <p>成功解析: <span id="parse-success-count">0</span> 篇</p>
+                        </div>
+                        <div id="parsed-items-preview" class="parsed-items-preview">
+                            <!-- 解析后的内容预览将在这里显示 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="parse-json-btn-action" class="btn-primary">解析JSON</button>
+                <button id="save-parsed-drafts-btn" class="btn-success" style="display: none;">保存到草稿箱</button>
+                <button id="close-parse-json-modal-footer" class="btn-secondary">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 草稿箱管理弹窗 -->
+    <div id="drafts-modal" class="modal">
+        <div class="modal-content large-modal">
+            <div class="modal-header">
+                <h3>草稿箱管理</h3>
+                <button class="modal-close" id="close-drafts-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- 操作工具栏 -->
+                <div class="drafts-toolbar">
+                    <div class="row">
+                        <input type="text" id="draft-search-input" placeholder="搜索草稿（标题或内容）..." class="grow">
+                        <button id="draft-search-btn" class="btn-secondary small">搜索</button>
+                        <button id="draft-refresh-btn" class="btn-primary small">刷新</button>
+                    </div>
+
+                    <div class="row">
+                        <select id="draft-source-filter" class="small" style="width: 120px;">
+                            <option value="">所有来源</option>
+                            <option value="manual">手动创建</option>
+                            <option value="parsed">JSON解析</option>
+                        </select>
+
+                        <select id="draft-topic-filter" class="grow">
+                            <option value="">所有话题</option>
+                        </select>
+
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="draft-select-all">
+                            <span>全选</span>
+                        </label>
+                    </div>
+
+                    <div class="row">
+                        <button id="draft-batch-publish-immediate" class="btn-success small" disabled>立即发布选中</button>
+                        <button id="draft-batch-publish-scheduled" class="btn-warning small" disabled>定时发布选中</button>
+                        <button id="draft-batch-delete" class="btn-danger small" disabled>删除选中</button>
+                    </div>
+                </div>
+
+                <!-- 草稿统计信息 -->
+                <div class="drafts-stats">
+                    <p>草稿总数: <span id="drafts-total-count">0</span> | 已选中: <span id="drafts-selected-count">0</span></p>
+                </div>
+
+                <!-- 草稿列表 -->
+                <div id="drafts-list-container" class="drafts-list-container">
+                    <!-- 草稿列表将在这里动态生成 -->
+                    <p class="no-drafts-message">暂无草稿</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="close-drafts-modal-footer" class="btn-secondary">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批量发布配置弹窗 -->
+    <div id="batch-publish-config-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>批量定时发布配置</h3>
+                <button class="modal-close" id="close-batch-publish-config-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="batch-publish-config-section">
+                    <h4>时间间隔设置</h4>
+                    <div class="form-row">
+                        <label>最小间隔(分钟):</label>
+                        <input type="number" id="batch-min-interval" value="60" min="10" max="1440" placeholder="最小间隔">
+                        <span class="help-text">两篇之间的最小时间间隔</span>
+                    </div>
+                    <div class="form-row">
+                        <label>最大间隔(分钟):</label>
+                        <input type="number" id="batch-max-interval" value="80" min="10" max="1440" placeholder="最大间隔">
+                        <span class="help-text">两篇之间的最大时间间隔</span>
+                    </div>
+
+                    <div class="batch-publish-info">
+                        <p class="info-text">
+                            <strong>智能发布说明:</strong><br>
+                            • 系统将在设定的时间间隔内随机安排发布时间<br>
+                            • 自动跳过夜间时段 (22:00-08:00)，改为次日早上8点发布<br>
+                            • 选中的 <span id="batch-selected-count-display">0</span> 篇草稿将被添加到定时发布队列
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="confirm-batch-publish-btn" class="btn-success">确认添加到定时发布</button>
+                <button id="close-batch-publish-config-modal-footer" class="btn-secondary">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 草稿编辑弹窗 -->
+    <div id="edit-draft-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>编辑草稿</h3>
+                <button class="modal-close" id="close-edit-draft-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="edit-draft-section">
+                    <div class="form-row">
+                        <label>标题:</label>
+                        <input type="text" id="edit-draft-title" placeholder="文章标题" class="grow">
+                    </div>
+
+                    <div class="form-row">
+                        <label>内容:</label>
+                        <textarea id="edit-draft-content" rows="12" placeholder="文章内容"></textarea>
+                    </div>
+
+                    <div class="form-row">
+                        <label>话题:</label>
+                        <select id="edit-draft-topic-group" class="small" style="width: 150px;">
+                            <option value="">所有分组</option>
+                        </select>
+                        <select id="edit-draft-topic-select" class="grow">
+                            <option value="">选择话题（可选）</option>
+                        </select>
+                    </div>
+
+                    <div class="form-row">
+                        <label>发布方式:</label>
+                        <select id="edit-draft-publish-type" class="small" style="width: 120px;">
+                            <option value="anonymous">匿名发布</option>
+                            <option value="real_name">实名发布</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="save-draft-btn" class="btn-success">保存修改</button>
+                <button id="close-edit-draft-modal-footer" class="btn-secondary">取消</button>
             </div>
         </div>
     </div>

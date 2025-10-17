@@ -632,3 +632,39 @@ class AIConversationDAO(BaseDAO):
         except Exception as e:
             logger.error(f"添加消息失败: {e}")
             return False
+
+
+class DraftDAO(BaseDAO):
+    """草稿箱DAO"""
+
+    def __init__(self):
+        super().__init__('drafts')
+
+    def _get_table_fields(self) -> List[str]:
+        return ['id', 'title', 'content', 'topic_url', 'topic_id', 'circle_type', 'topic_name', 'publish_type', 'source', 'tags', 'created_at', 'updated_at']
+
+    def _get_json_fields(self) -> List[str]:
+        return []
+
+    def _get_datetime_fields(self) -> List[str]:
+        return ['created_at', 'updated_at']
+
+    def find_by_source(self, source: str) -> List[Dict[str, Any]]:
+        """根据来源查找草稿"""
+        return self.find_all({'source': source}, 'created_at DESC')
+
+    def find_by_topic_id(self, topic_id: str) -> List[Dict[str, Any]]:
+        """根据话题ID查找草稿"""
+        return self.find_all({'topic_id': topic_id}, 'created_at DESC')
+
+    def search_by_keyword(self, keyword: str) -> List[Dict[str, Any]]:
+        """根据关键词搜索草稿(标题或内容)"""
+        sql = f"SELECT * FROM `{self.table_name}` WHERE `title` LIKE %s OR `content` LIKE %s ORDER BY `created_at` DESC"
+        result = self.db.execute_query(sql, (f'%{keyword}%', f'%{keyword}%'))
+        return [self._process_record(record) for record in result]
+
+    def find_by_tag(self, tag: str) -> List[Dict[str, Any]]:
+        """根据标签查找草稿"""
+        sql = f"SELECT * FROM `{self.table_name}` WHERE FIND_IN_SET(%s, `tags`) > 0 ORDER BY `created_at` DESC"
+        result = self.db.execute_query(sql, (tag,))
+        return [self._process_record(record) for record in result]

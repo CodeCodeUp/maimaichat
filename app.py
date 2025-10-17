@@ -1544,9 +1544,428 @@ def remove_keyword_from_group(group_name, keyword):
             return jsonify({'success': True, 'message': f'关键词 "{keyword}" 删除成功'})
         else:
             return jsonify({'success': False, 'error': '关键词不存在或删除失败'}), 404
-            
+
     except Exception as e:
         logger.error(f"删除关键词失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ===== 草稿箱管理API =====
+
+@app.route('/api/drafts', methods=['GET'])
+def get_drafts():
+    """获取所有草稿"""
+    try:
+        from modules.database.dao import DraftDAO
+        draft_dao = DraftDAO()
+
+        # 支持按来源、话题ID筛选
+        source = request.args.get('source')
+        topic_id = request.args.get('topic_id')
+
+        if source:
+            drafts = draft_dao.find_by_source(source)
+        elif topic_id:
+            drafts = draft_dao.find_by_topic_id(topic_id)
+        else:
+            drafts = draft_dao.find_all(order_by='created_at DESC')
+
+        return jsonify({
+            'success': True,
+            'data': drafts,
+            'count': len(drafts)
+        })
+    except Exception as e:
+        logger.error(f"获取草稿列表失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/drafts', methods=['POST'])
+def create_draft():
+    """创建草稿"""
+    try:
+        from modules.database.dao import DraftDAO
+        import uuid
+
+        data = request.get_json()
+        if not data or 'content' not in data:
+            return jsonify({'success': False, 'error': '缺少必需参数：content'}), 400
+
+        draft_dao = DraftDAO()
+        draft_id = str(uuid.uuid4())
+
+        draft_data = {
+            'id': draft_id,
+            'title': data.get('title', ''),
+            'content': data['content'],
+            'topic_url': data.get('topic_url'),
+            'topic_id': data.get('topic_id'),
+            'circle_type': data.get('circle_type'),
+            'topic_name': data.get('topic_name'),
+            'publish_type': data.get('publish_type', 'anonymous'),
+            'source': data.get('source', 'manual'),
+            'tags': data.get('tags')
+        }
+
+        result = draft_dao.insert(draft_data)
+        if result:
+            draft = draft_dao.find_by_id(draft_id)
+            return jsonify({
+                'success': True,
+                'data': draft,
+                'message': '草稿创建成功'
+            })
+        else:
+            return jsonify({'success': False, 'error': '创建草稿失败'}), 500
+
+    except Exception as e:
+        logger.error(f"创建草稿失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/drafts/<draft_id>', methods=['GET'])
+def get_draft(draft_id):
+    """获取单个草稿"""
+    try:
+        from modules.database.dao import DraftDAO
+        draft_dao = DraftDAO()
+
+        draft = draft_dao.find_by_id(draft_id)
+        if not draft:
+            return jsonify({'success': False, 'error': '草稿不存在'}), 404
+
+        return jsonify({
+            'success': True,
+            'data': draft
+        })
+    except Exception as e:
+        logger.error(f"获取草稿失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/drafts/<draft_id>', methods=['PUT'])
+def update_draft(draft_id):
+    """更新草稿"""
+    try:
+        from modules.database.dao import DraftDAO
+        draft_dao = DraftDAO()
+
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': '缺少请求数据'}), 400
+
+        # 检查草稿是否存在
+        draft = draft_dao.find_by_id(draft_id)
+        if not draft:
+            return jsonify({'success': False, 'error': '草稿不存在'}), 404
+
+        # 准备更新数据
+        update_data = {}
+        allowed_fields = ['title', 'content', 'topic_url', 'topic_id', 'circle_type',
+                         'topic_name', 'publish_type', 'tags']
+
+        for field in allowed_fields:
+            if field in data:
+                update_data[field] = data[field]
+
+        if not update_data:
+            return jsonify({'success': False, 'error': '没有提供更新数据'}), 400
+
+        rows_affected = draft_dao.update(draft_id, update_data)
+        if rows_affected > 0:
+            updated_draft = draft_dao.find_by_id(draft_id)
+            return jsonify({
+                'success': True,
+                'data': updated_draft,
+                'message': '草稿更新成功'
+            })
+        else:
+            return jsonify({'success': False, 'error': '更新草稿失败'}), 500
+
+    except Exception as e:
+        logger.error(f"更新草稿失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/drafts/<draft_id>', methods=['DELETE'])
+def delete_draft(draft_id):
+    """删除草稿"""
+    try:
+        from modules.database.dao import DraftDAO
+        draft_dao = DraftDAO()
+
+        rows_affected = draft_dao.delete(draft_id)
+        if rows_affected > 0:
+            return jsonify({
+                'success': True,
+                'message': '草稿删除成功'
+            })
+        else:
+            return jsonify({'success': False, 'error': '草稿不存在'}), 404
+
+    except Exception as e:
+        logger.error(f"删除草稿失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/drafts/parse', methods=['POST'])
+def parse_json_to_drafts():
+    """解析JSON内容并保存为草稿"""
+    try:
+        from modules.database.dao import DraftDAO
+        import uuid
+
+        data = request.get_json()
+        if not data or 'content' not in data:
+            return jsonify({'success': False, 'error': '缺少必需参数：content'}), 400
+
+        json_content = data['content']
+
+        # 使用现有的parse_ai_response函数解析JSON
+        parsed_data = parse_ai_response(json_content)
+
+        if not parsed_data['success'] or not parsed_data['items']:
+            return jsonify({'success': False, 'error': 'JSON解析失败，未找到有效内容'}), 400
+
+        draft_dao = DraftDAO()
+        created_drafts = []
+
+        # 获取话题信息（如果提供）
+        topic_id = data.get('topic_id')
+        topic_url = data.get('topic_url')
+        circle_type = data.get('circle_type')
+        topic_name = data.get('topic_name')
+        publish_type = data.get('publish_type', 'anonymous')
+
+        # 将解析的每个项目保存为草稿
+        for item in parsed_data['items']:
+            draft_id = str(uuid.uuid4())
+            draft_data = {
+                'id': draft_id,
+                'title': item.get('title', ''),
+                'content': item['content'],
+                'topic_url': topic_url,
+                'topic_id': topic_id,
+                'circle_type': circle_type,
+                'topic_name': topic_name,
+                'publish_type': publish_type,
+                'source': 'parsed',
+                'tags': None
+            }
+
+            result = draft_dao.insert(draft_data)
+            if result:
+                created_drafts.append(draft_dao.find_by_id(draft_id))
+
+        return jsonify({
+            'success': True,
+            'data': created_drafts,
+            'count': len(created_drafts),
+            'message': f'成功解析并保存 {len(created_drafts)} 篇草稿'
+        })
+
+    except Exception as e:
+        logger.error(f"解析JSON到草稿失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/drafts/search', methods=['GET'])
+def search_drafts():
+    """搜索草稿"""
+    try:
+        from modules.database.dao import DraftDAO
+        draft_dao = DraftDAO()
+
+        keyword = request.args.get('q', '').strip()
+        if not keyword:
+            return jsonify({'success': False, 'error': '缺少搜索关键词'}), 400
+
+        drafts = draft_dao.search_by_keyword(keyword)
+        return jsonify({
+            'success': True,
+            'data': drafts,
+            'count': len(drafts)
+        })
+
+    except Exception as e:
+        logger.error(f"搜索草稿失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/drafts/batch-publish', methods=['POST'])
+def batch_publish_drafts():
+    """批量发布草稿（立即发布或定时发布）"""
+    try:
+        from modules.database.dao import DraftDAO
+        from datetime import datetime, timedelta
+        import random
+
+        data = request.get_json()
+        if not data or 'draft_ids' not in data:
+            return jsonify({'success': False, 'error': '缺少必需参数：draft_ids'}), 400
+
+        draft_ids = data['draft_ids']
+        publish_mode = data.get('mode', 'immediate')  # immediate 或 scheduled
+        min_interval = data.get('min_interval', 60)  # 最小间隔（分钟）
+        max_interval = data.get('max_interval', 80)  # 最大间隔（分钟）
+
+        if not isinstance(draft_ids, list) or len(draft_ids) == 0:
+            return jsonify({'success': False, 'error': 'draft_ids必须是非空数组'}), 400
+
+        draft_dao = DraftDAO()
+        results = {
+            'success': [],
+            'failed': []
+        }
+
+        if publish_mode == 'immediate':
+            # 立即发布模式
+            for draft_id in draft_ids:
+                try:
+                    draft = draft_dao.find_by_id(draft_id)
+                    if not draft:
+                        results['failed'].append({
+                            'draft_id': draft_id,
+                            'error': '草稿不存在'
+                        })
+                        continue
+
+                    # 调用发布API
+                    publish_data = {
+                        'title': draft['title'],
+                        'content': draft['content'],
+                        'topic_url': draft.get('topic_url'),
+                        'topic_id': draft.get('topic_id'),
+                        'circle_type': draft.get('circle_type'),
+                        'publish_type': draft.get('publish_type', 'anonymous')
+                    }
+
+                    # 使用现有的脉脉API发布
+                    if draft.get('topic_id') and draft.get('circle_type'):
+                        result = maimai_api.publish_content(
+                            title=publish_data['title'],
+                            content=publish_data['content'],
+                            topic_id=publish_data['topic_id'],
+                            circle_type=publish_data['circle_type'],
+                            topic_name=draft.get('topic_name'),
+                            publish_type=publish_data['publish_type']
+                        )
+                    elif draft.get('topic_url'):
+                        result = maimai_api.publish_content(
+                            title=publish_data['title'],
+                            content=publish_data['content'],
+                            topic_url=publish_data['topic_url'],
+                            publish_type=publish_data['publish_type']
+                        )
+                    else:
+                        result = maimai_api.publish_content(
+                            title=publish_data['title'],
+                            content=publish_data['content'],
+                            publish_type=publish_data['publish_type']
+                        )
+
+                    if result['success']:
+                        # 发布成功，删除草稿
+                        draft_dao.delete(draft_id)
+                        results['success'].append({
+                            'draft_id': draft_id,
+                            'title': draft['title']
+                        })
+                    else:
+                        results['failed'].append({
+                            'draft_id': draft_id,
+                            'error': result.get('error', 'Unknown error')
+                        })
+
+                except Exception as e:
+                    results['failed'].append({
+                        'draft_id': draft_id,
+                        'error': str(e)
+                    })
+
+        else:  # scheduled mode
+            # 定时发布模式，支持智能跳过夜间时段
+            current_time = datetime.now()
+
+            for i, draft_id in enumerate(draft_ids):
+                try:
+                    draft = draft_dao.find_by_id(draft_id)
+                    if not draft:
+                        results['failed'].append({
+                            'draft_id': draft_id,
+                            'error': '草稿不存在'
+                        })
+                        continue
+
+                    # 计算发布时间
+                    if i == 0:
+                        # 第一篇：基于当前时间
+                        scheduled_time = current_time
+                    else:
+                        # 后续篇：基于上一篇的时间加上随机间隔
+                        interval_minutes = random.randint(min_interval, max_interval)
+                        scheduled_time = scheduled_time + timedelta(minutes=interval_minutes)
+
+                    # 智能跳过夜间时段 (22:00-8:00)
+                    while True:
+                        hour = scheduled_time.hour
+                        if hour >= 22 or hour < 8:
+                            # 在夜间时段，跳到第二天早上8点
+                            if hour >= 22:
+                                # 22:00之后，跳到明天8:00
+                                scheduled_time = scheduled_time.replace(hour=8, minute=0, second=0, microsecond=0) + timedelta(days=1)
+                            else:
+                                # 0:00-7:59，跳到今天8:00
+                                scheduled_time = scheduled_time.replace(hour=8, minute=0, second=0, microsecond=0)
+                        else:
+                            break
+
+                    # 添加到定时发布队列
+                    post_id = scheduled_posts_store.add_post(
+                        title=draft['title'],
+                        content=draft['content'],
+                        topic_url=draft.get('topic_url'),
+                        topic_id=draft.get('topic_id'),
+                        circle_type=draft.get('circle_type'),
+                        topic_name=draft.get('topic_name'),
+                        publish_type=draft.get('publish_type', 'anonymous'),
+                        min_interval=min_interval,
+                        max_interval=max_interval
+                    )
+
+                    if post_id:
+                        # 添加成功，删除草稿
+                        draft_dao.delete(draft_id)
+                        results['success'].append({
+                            'draft_id': draft_id,
+                            'title': draft['title'],
+                            'scheduled_at': scheduled_time.isoformat()
+                        })
+                    else:
+                        results['failed'].append({
+                            'draft_id': draft_id,
+                            'error': '添加到定时发布队列失败'
+                        })
+
+                except Exception as e:
+                    results['failed'].append({
+                        'draft_id': draft_id,
+                        'error': str(e)
+                    })
+
+        return jsonify({
+            'success': True,
+            'results': results,
+            'summary': {
+                'total': len(draft_ids),
+                'success': len(results['success']),
+                'failed': len(results['failed'])
+            },
+            'message': f'批量发布完成：成功 {len(results["success"])} 篇，失败 {len(results["failed"])} 篇'
+        })
+
+    except Exception as e:
+        logger.error(f"批量发布草稿失败: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

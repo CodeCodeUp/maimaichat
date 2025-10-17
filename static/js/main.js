@@ -172,6 +172,67 @@ class MaimaiPublisher {
         this.newAiAssistantModelInput = document.getElementById('new-ai-assistant-model');
         this.addAiConfigBtn = document.getElementById('add-ai-config-btn');
         this.clearAiFormBtn = document.getElementById('clear-ai-form-btn');
+
+        // 草稿箱管理
+        this.parseJsonBtn = document.getElementById('parse-json-btn');
+        this.manageDraftsBtn = document.getElementById('manage-drafts');
+
+        // JSON解析弹窗
+        this.parseJsonModal = document.getElementById('parse-json-modal');
+        this.closeParseJsonModalBtn = document.getElementById('close-parse-json-modal');
+        this.closeParseJsonModalFooterBtn = document.getElementById('close-parse-json-modal-footer');
+        this.jsonContentInput = document.getElementById('json-content-input');
+        this.parseJsonTopicGroup = document.getElementById('parse-json-topic-group');
+        this.parseJsonTopicSelect = document.getElementById('parse-json-topic-select');
+        this.parseJsonPublishType = document.getElementById('parse-json-publish-type');
+        this.parseJsonBtnAction = document.getElementById('parse-json-btn-action');
+        this.saveParsedDraftsBtn = document.getElementById('save-parsed-drafts-btn');
+        this.parseJsonPreview = document.getElementById('parse-json-preview');
+        this.parseSuccessCount = document.getElementById('parse-success-count');
+        this.parsedItemsPreview = document.getElementById('parsed-items-preview');
+
+        // 草稿箱管理弹窗
+        this.draftsModal = document.getElementById('drafts-modal');
+        this.closeDraftsModalBtn = document.getElementById('close-drafts-modal');
+        this.closeDraftsModalFooterBtn = document.getElementById('close-drafts-modal-footer');
+        this.draftSearchInput = document.getElementById('draft-search-input');
+        this.draftSearchBtn = document.getElementById('draft-search-btn');
+        this.draftRefreshBtn = document.getElementById('draft-refresh-btn');
+        this.draftSourceFilter = document.getElementById('draft-source-filter');
+        this.draftTopicFilter = document.getElementById('draft-topic-filter');
+        this.draftSelectAll = document.getElementById('draft-select-all');
+        this.draftBatchPublishImmediate = document.getElementById('draft-batch-publish-immediate');
+        this.draftBatchPublishScheduled = document.getElementById('draft-batch-publish-scheduled');
+        this.draftBatchDelete = document.getElementById('draft-batch-delete');
+        this.draftsTotalCount = document.getElementById('drafts-total-count');
+        this.draftsSelectedCount = document.getElementById('drafts-selected-count');
+        this.draftsListContainer = document.getElementById('drafts-list-container');
+
+        // 批量发布配置弹窗
+        this.batchPublishConfigModal = document.getElementById('batch-publish-config-modal');
+        this.closeBatchPublishConfigModalBtn = document.getElementById('close-batch-publish-config-modal');
+        this.closeBatchPublishConfigModalFooterBtn = document.getElementById('close-batch-publish-config-modal-footer');
+        this.batchMinInterval = document.getElementById('batch-min-interval');
+        this.batchMaxInterval = document.getElementById('batch-max-interval');
+        this.batchSelectedCountDisplay = document.getElementById('batch-selected-count-display');
+        this.confirmBatchPublishBtn = document.getElementById('confirm-batch-publish-btn');
+
+        // 草稿编辑弹窗
+        this.editDraftModal = document.getElementById('edit-draft-modal');
+        this.closeEditDraftModalBtn = document.getElementById('close-edit-draft-modal');
+        this.closeEditDraftModalFooterBtn = document.getElementById('close-edit-draft-modal-footer');
+        this.editDraftTitle = document.getElementById('edit-draft-title');
+        this.editDraftContent = document.getElementById('edit-draft-content');
+        this.editDraftTopicGroup = document.getElementById('edit-draft-topic-group');
+        this.editDraftTopicSelect = document.getElementById('edit-draft-topic-select');
+        this.editDraftPublishType = document.getElementById('edit-draft-publish-type');
+        this.saveDraftBtn = document.getElementById('save-draft-btn');
+
+        // 草稿箱状态
+        this.drafts = [];
+        this.selectedDrafts = [];
+        this.currentEditingDraftId = null;
+        this.parsedDrafts = [];
     }
 
     bindEvents() {
@@ -323,6 +384,70 @@ class MaimaiPublisher {
         this.autoPublishModal?.addEventListener('click', (e) => {
             if (e.target === this.autoPublishModal) {
                 this.closeAutoPublishModal();
+            }
+        });
+
+        // 草稿箱管理
+        this.parseJsonBtn?.addEventListener('click', () => this.openParseJsonModal());
+        this.manageDraftsBtn?.addEventListener('click', () => this.openDraftsModal());
+
+        // JSON解析弹窗
+        this.closeParseJsonModalBtn?.addEventListener('click', () => this.closeParseJsonModal());
+        this.closeParseJsonModalFooterBtn?.addEventListener('click', () => this.closeParseJsonModal());
+        this.parseJsonBtnAction?.addEventListener('click', () => this.parseJsonContent());
+        this.saveParsedDraftsBtn?.addEventListener('click', () => this.saveParsedDrafts());
+        this.parseJsonTopicGroup?.addEventListener('change', () => this.onParseJsonTopicGroupChange());
+
+        // 草稿箱管理弹窗
+        this.closeDraftsModalBtn?.addEventListener('click', () => this.closeDraftsModal());
+        this.closeDraftsModalFooterBtn?.addEventListener('click', () => this.closeDraftsModal());
+        this.draftSearchBtn?.addEventListener('click', () => this.searchDrafts());
+        this.draftRefreshBtn?.addEventListener('click', () => this.loadDrafts());
+        this.draftSourceFilter?.addEventListener('change', () => this.filterDrafts());
+        this.draftTopicFilter?.addEventListener('change', () => this.filterDrafts());
+        this.draftSelectAll?.addEventListener('change', (e) => this.toggleSelectAllDrafts(e.target.checked));
+        this.draftBatchPublishImmediate?.addEventListener('click', () => this.batchPublishDrafts('immediate'));
+        this.draftBatchPublishScheduled?.addEventListener('click', () => this.openBatchPublishConfigModal());
+        this.draftBatchDelete?.addEventListener('click', () => this.batchDeleteDrafts());
+        this.draftSearchInput?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                this.searchDrafts();
+            }
+        });
+
+        // 批量发布配置弹窗
+        this.closeBatchPublishConfigModalBtn?.addEventListener('click', () => this.closeBatchPublishConfigModal());
+        this.closeBatchPublishConfigModalFooterBtn?.addEventListener('click', () => this.closeBatchPublishConfigModal());
+        this.confirmBatchPublishBtn?.addEventListener('click', () => this.confirmBatchPublish());
+
+        // 草稿编辑弹窗
+        this.closeEditDraftModalBtn?.addEventListener('click', () => this.closeEditDraftModal());
+        this.closeEditDraftModalFooterBtn?.addEventListener('click', () => this.closeEditDraftModal());
+        this.saveDraftBtn?.addEventListener('click', () => this.saveEditedDraft());
+        this.editDraftTopicGroup?.addEventListener('change', () => this.onEditDraftTopicGroupChange());
+
+        // 点击草稿箱弹窗外部关闭
+        this.parseJsonModal?.addEventListener('click', (e) => {
+            if (e.target === this.parseJsonModal) {
+                this.closeParseJsonModal();
+            }
+        });
+
+        this.draftsModal?.addEventListener('click', (e) => {
+            if (e.target === this.draftsModal) {
+                this.closeDraftsModal();
+            }
+        });
+
+        this.batchPublishConfigModal?.addEventListener('click', (e) => {
+            if (e.target === this.batchPublishConfigModal) {
+                this.closeBatchPublishConfigModal();
+            }
+        });
+
+        this.editDraftModal?.addEventListener('click', (e) => {
+            if (e.target === this.editDraftModal) {
+                this.closeEditDraftModal();
             }
         });
 
@@ -3717,14 +3842,14 @@ class MaimaiPublisher {
         if (!confirm('确定要删除这个自动发布配置吗？删除后不可恢复。')) {
             return;
         }
-        
+
         try {
             const response = await fetch(`/api/auto-publish/${configId}`, {
                 method: 'DELETE'
             });
-            
+
             const result = await response.json();
-            
+
             if (result.success) {
                 this.updateStatus(result.message, 'success');
                 await this.loadAutoPublishConfigs();
@@ -3734,6 +3859,800 @@ class MaimaiPublisher {
         } catch (error) {
             console.error('删除自动发布配置失败:', error);
             this.updateStatus('删除配置失败: ' + error.message, 'error');
+        }
+    }
+
+    // ===== 草稿箱管理 =====
+
+    // JSON解析弹窗
+    openParseJsonModal() {
+        if (!this.parseJsonModal) return;
+
+        // 更新话题分组和发布方式选择器
+        this.updateParseJsonTopicSelectors();
+
+        // 重置表单
+        if (this.jsonContentInput) this.jsonContentInput.value = '';
+        if (this.parseJsonTopicGroup) this.parseJsonTopicGroup.value = '';
+        if (this.parseJsonTopicSelect) this.parseJsonTopicSelect.value = '';
+        if (this.parseJsonPublishType) this.parseJsonPublishType.value = 'anonymous';
+
+        // 隐藏预览区域
+        if (this.parseJsonPreview) this.parseJsonPreview.style.display = 'none';
+        if (this.saveParsedDraftsBtn) this.saveParsedDraftsBtn.style.display = 'none';
+
+        this.parsedDrafts = [];
+        this.parseJsonModal.style.display = 'block';
+    }
+
+    closeParseJsonModal() {
+        if (!this.parseJsonModal) return;
+        this.parseJsonModal.style.display = 'none';
+    }
+
+    updateParseJsonTopicSelectors() {
+        // 更新分组选择器
+        if (this.parseJsonTopicGroup) {
+            this.parseJsonTopicGroup.innerHTML = '<option value="">所有分组</option>';
+            Object.keys(this.groupedTopics).forEach(groupName => {
+                const option = document.createElement('option');
+                option.value = groupName;
+                option.textContent = groupName;
+                this.parseJsonTopicGroup.appendChild(option);
+            });
+        }
+
+        // 更新话题选择器
+        this.onParseJsonTopicGroupChange();
+    }
+
+    onParseJsonTopicGroupChange() {
+        if (!this.parseJsonTopicSelect) return;
+
+        const selectedGroup = this.parseJsonTopicGroup?.value || '';
+        this.parseJsonTopicSelect.innerHTML = '<option value="">选择话题（可选）</option>';
+
+        if (selectedGroup) {
+            const groupTopics = this.groupedTopics[selectedGroup] || [];
+            groupTopics.forEach(topic => {
+                const option = document.createElement('option');
+                option.value = topic.id;
+                option.textContent = `${topic.name} (ID: ${topic.id})`;
+                this.parseJsonTopicSelect.appendChild(option);
+            });
+        } else {
+            // 显示所有话题按分组
+            Object.entries(this.groupedTopics).forEach(([groupName, topics]) => {
+                if (topics.length > 0) {
+                    const optgroup = document.createElement('optgroup');
+                    optgroup.label = groupName;
+                    topics.forEach(topic => {
+                        const option = document.createElement('option');
+                        option.value = topic.id;
+                        option.textContent = `${topic.name} (ID: ${topic.id})`;
+                        optgroup.appendChild(option);
+                    });
+                    this.parseJsonTopicSelect.appendChild(optgroup);
+                }
+            });
+        }
+    }
+
+    async parseJsonContent() {
+        const jsonContent = this.jsonContentInput?.value.trim();
+        if (!jsonContent) {
+            this.updateStatus('请输入JSON内容', 'error');
+            return;
+        }
+
+        try {
+            // 尝试解析JSON
+            let items;
+            try {
+                items = JSON.parse(jsonContent);
+            } catch (e) {
+                this.updateStatus('JSON格式错误，请检查格式', 'error');
+                return;
+            }
+
+            if (!Array.isArray(items)) {
+                this.updateStatus('JSON必须是数组格式', 'error');
+                return;
+            }
+
+            if (items.length === 0) {
+                this.updateStatus('JSON数组不能为空', 'error');
+                return;
+            }
+
+            // 验证每个项目
+            const validItems = [];
+            items.forEach((item, index) => {
+                if (item.title && item.content) {
+                    validItems.push({
+                        title: item.title,
+                        content: item.content
+                    });
+                } else if (item.content) {
+                    validItems.push({
+                        title: '',
+                        content: item.content
+                    });
+                }
+            });
+
+            if (validItems.length === 0) {
+                this.updateStatus('没有找到有效的内容项', 'error');
+                return;
+            }
+
+            // 保存解析结果
+            this.parsedDrafts = validItems;
+
+            // 显示预览
+            this.renderParsedItemsPreview(validItems);
+
+            // 显示预览区域和保存按钮
+            if (this.parseJsonPreview) this.parseJsonPreview.style.display = 'block';
+            if (this.saveParsedDraftsBtn) this.saveParsedDraftsBtn.style.display = 'inline-block';
+            if (this.parseSuccessCount) this.parseSuccessCount.textContent = validItems.length;
+
+            this.updateStatus(`成功解析 ${validItems.length} 篇内容`, 'success');
+
+        } catch (error) {
+            console.error('解析JSON失败:', error);
+            this.updateStatus('解析JSON失败: ' + error.message, 'error');
+        }
+    }
+
+    renderParsedItemsPreview(items) {
+        if (!this.parsedItemsPreview) return;
+
+        this.parsedItemsPreview.innerHTML = '';
+
+        items.forEach((item, index) => {
+            const previewItem = document.createElement('div');
+            previewItem.className = 'parsed-item-preview';
+            previewItem.innerHTML = `
+                <div class="parsed-item-header">
+                    <div class="parsed-item-number">#${index + 1}</div>
+                    <div class="parsed-item-title">${this.escapeHtml(item.title || '无标题')}</div>
+                </div>
+                <div class="parsed-item-content">${this.escapeHtml(item.content.substring(0, 100))}...</div>
+            `;
+            this.parsedItemsPreview.appendChild(previewItem);
+        });
+    }
+
+    async saveParsedDrafts() {
+        if (!this.parsedDrafts || this.parsedDrafts.length === 0) {
+            this.updateStatus('没有可保存的解析内容', 'error');
+            return;
+        }
+
+        try {
+            // 获取话题信息
+            const topicId = this.parseJsonTopicSelect?.value || null;
+            const publishType = this.parseJsonPublishType?.value || 'anonymous';
+
+            let topicInfo = {};
+            if (topicId) {
+                const topic = this.topics.find(t => t.id === topicId);
+                if (topic) {
+                    topicInfo = {
+                        topic_id: topic.id,
+                        circle_type: topic.circle_type,
+                        topic_name: topic.name
+                    };
+                }
+            }
+
+            // 构建请求数据
+            const requestData = {
+                content: JSON.stringify(this.parsedDrafts),
+                publish_type: publishType,
+                ...topicInfo
+            };
+
+            this.setButtonLoading(this.saveParsedDraftsBtn, true);
+            this.updateStatus('正在保存到草稿箱...', 'info');
+
+            const response = await fetch('/api/drafts/parse', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestData)
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.updateStatus(`成功保存 ${result.count} 篇草稿到草稿箱`, 'success');
+                this.closeParseJsonModal();
+            } else {
+                this.updateStatus('保存草稿失败: ' + result.error, 'error');
+            }
+
+        } catch (error) {
+            console.error('保存草稿失败:', error);
+            this.updateStatus('保存草稿失败: ' + error.message, 'error');
+        } finally {
+            this.setButtonLoading(this.saveParsedDraftsBtn, false);
+        }
+    }
+
+    // 草稿箱管理弹窗
+    async openDraftsModal() {
+        if (!this.draftsModal) return;
+
+        // 更新话题筛选器
+        this.updateDraftTopicFilter();
+
+        // 加载草稿列表
+        await this.loadDrafts();
+
+        this.draftsModal.style.display = 'block';
+    }
+
+    closeDraftsModal() {
+        if (!this.draftsModal) return;
+        this.draftsModal.style.display = 'none';
+    }
+
+    updateDraftTopicFilter() {
+        if (!this.draftTopicFilter) return;
+
+        this.draftTopicFilter.innerHTML = '<option value="">所有话题</option>';
+        this.topics.forEach(topic => {
+            const option = document.createElement('option');
+            option.value = topic.id;
+            option.textContent = `${topic.name} (${topic.group_name || '未分组'})`;
+            this.draftTopicFilter.appendChild(option);
+        });
+    }
+
+    async loadDrafts() {
+        try {
+            const response = await fetch('/api/drafts');
+            const result = await response.json();
+
+            if (result.success) {
+                this.drafts = result.data;
+                this.selectedDrafts = [];
+                this.renderDraftsList(this.drafts);
+                this.updateDraftsStats();
+                this.updateBatchButtons();
+            } else {
+                this.updateStatus('加载草稿失败: ' + result.error, 'error');
+            }
+        } catch (error) {
+            console.error('加载草稿失败:', error);
+            this.updateStatus('加载草稿失败: ' + error.message, 'error');
+        }
+    }
+
+    async searchDrafts() {
+        const keyword = this.draftSearchInput?.value.trim();
+        if (!keyword) {
+            await this.loadDrafts();
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/drafts/search?q=${encodeURIComponent(keyword)}`);
+            const result = await response.json();
+
+            if (result.success) {
+                this.drafts = result.data;
+                this.selectedDrafts = [];
+                this.renderDraftsList(this.drafts);
+                this.updateDraftsStats();
+                this.updateBatchButtons();
+                this.updateStatus(`找到 ${result.count} 篇匹配的草稿`, 'success');
+            } else {
+                this.updateStatus('搜索草稿失败: ' + result.error, 'error');
+            }
+        } catch (error) {
+            console.error('搜索草稿失败:', error);
+            this.updateStatus('搜索草稿失败: ' + error.message, 'error');
+        }
+    }
+
+    filterDrafts() {
+        const sourceFilter = this.draftSourceFilter?.value || '';
+        const topicFilter = this.draftTopicFilter?.value || '';
+
+        let filteredDrafts = this.drafts;
+
+        if (sourceFilter) {
+            filteredDrafts = filteredDrafts.filter(draft => draft.source === sourceFilter);
+        }
+
+        if (topicFilter) {
+            filteredDrafts = filteredDrafts.filter(draft => draft.topic_id === topicFilter);
+        }
+
+        this.renderDraftsList(filteredDrafts);
+    }
+
+    renderDraftsList(drafts) {
+        if (!this.draftsListContainer) return;
+
+        if (drafts.length === 0) {
+            this.draftsListContainer.innerHTML = '<p class="no-drafts-message">暂无草稿</p>';
+            return;
+        }
+
+        this.draftsListContainer.innerHTML = '';
+
+        drafts.forEach(draft => {
+            const draftItem = this.createDraftItem(draft);
+            this.draftsListContainer.appendChild(draftItem);
+        });
+    }
+
+    createDraftItem(draft) {
+        const item = document.createElement('div');
+        item.className = 'draft-item';
+        item.dataset.draftId = draft.id;
+
+        const isSelected = this.selectedDrafts.includes(draft.id);
+        const sourceLabel = draft.source === 'parsed' ? 'JSON解析' : '手动创建';
+        const publishTypeLabel = draft.publish_type === 'anonymous' ? '匿名' : '实名';
+        const topicLabel = draft.topic_name ? `${draft.topic_name}` : '无话题';
+
+        item.innerHTML = `
+            <div class="draft-item-header">
+                <label class="draft-checkbox">
+                    <input type="checkbox" class="draft-select-checkbox" ${isSelected ? 'checked' : ''}>
+                </label>
+                <div class="draft-title">${this.escapeHtml(draft.title || '无标题')}</div>
+                <div class="draft-badges">
+                    <span class="draft-badge source-${draft.source}">${sourceLabel}</span>
+                    <span class="draft-badge publish-type-${draft.publish_type}">${publishTypeLabel}</span>
+                    ${draft.topic_name ? `<span class="draft-badge topic-badge">${topicLabel}</span>` : ''}
+                </div>
+            </div>
+            <div class="draft-content">${this.escapeHtml(draft.content.substring(0, 150))}...</div>
+            <div class="draft-meta">
+                <small>创建时间: ${new Date(draft.created_at).toLocaleString()}</small>
+                <div class="draft-actions">
+                    <button class="btn-primary small edit-draft">编辑</button>
+                    <button class="btn-success small publish-draft">发布</button>
+                    <button class="btn-danger small delete-draft">删除</button>
+                </div>
+            </div>
+        `;
+
+        // 绑定复选框事件
+        const checkbox = item.querySelector('.draft-select-checkbox');
+        checkbox?.addEventListener('change', (e) => {
+            this.toggleDraftSelection(draft.id, e.target.checked);
+        });
+
+        // 绑定操作按钮
+        const editBtn = item.querySelector('.edit-draft');
+        editBtn?.addEventListener('click', () => this.openEditDraftModal(draft));
+
+        const publishBtn = item.querySelector('.publish-draft');
+        publishBtn?.addEventListener('click', () => this.publishSingleDraft(draft));
+
+        const deleteBtn = item.querySelector('.delete-draft');
+        deleteBtn?.addEventListener('click', () => this.deleteSingleDraft(draft.id));
+
+        return item;
+    }
+
+    toggleDraftSelection(draftId, selected) {
+        if (selected) {
+            if (!this.selectedDrafts.includes(draftId)) {
+                this.selectedDrafts.push(draftId);
+            }
+        } else {
+            this.selectedDrafts = this.selectedDrafts.filter(id => id !== draftId);
+        }
+
+        this.updateDraftsStats();
+        this.updateBatchButtons();
+
+        // 更新全选复选框状态
+        if (this.draftSelectAll) {
+            const allVisible = this.draftsListContainer?.querySelectorAll('.draft-item').length || 0;
+            this.draftSelectAll.checked = allVisible > 0 && this.selectedDrafts.length === allVisible;
+        }
+    }
+
+    toggleSelectAllDrafts(checked) {
+        const visibleDrafts = this.draftsListContainer?.querySelectorAll('.draft-item');
+        if (!visibleDrafts) return;
+
+        visibleDrafts.forEach(item => {
+            const checkbox = item.querySelector('.draft-select-checkbox');
+            const draftId = item.dataset.draftId;
+
+            if (checkbox) {
+                checkbox.checked = checked;
+                this.toggleDraftSelection(draftId, checked);
+            }
+        });
+    }
+
+    updateDraftsStats() {
+        if (this.draftsTotalCount) {
+            this.draftsTotalCount.textContent = this.drafts.length;
+        }
+        if (this.draftsSelectedCount) {
+            this.draftsSelectedCount.textContent = this.selectedDrafts.length;
+        }
+    }
+
+    updateBatchButtons() {
+        const hasSelected = this.selectedDrafts.length > 0;
+
+        if (this.draftBatchPublishImmediate) {
+            this.draftBatchPublishImmediate.disabled = !hasSelected;
+        }
+        if (this.draftBatchPublishScheduled) {
+            this.draftBatchPublishScheduled.disabled = !hasSelected;
+        }
+        if (this.draftBatchDelete) {
+            this.draftBatchDelete.disabled = !hasSelected;
+        }
+    }
+
+    // 单篇草稿发布
+    async publishSingleDraft(draft) {
+        if (!confirm(`确定要立即发布草稿"${draft.title || '无标题'}"吗？`)) {
+            return;
+        }
+
+        try {
+            const publishData = {
+                title: draft.title,
+                content: draft.content,
+                publish_type: draft.publish_type
+            };
+
+            if (draft.topic_id && draft.circle_type) {
+                publishData.topic_id = draft.topic_id;
+                publishData.circle_type = draft.circle_type;
+            } else if (draft.topic_url) {
+                publishData.topic_url = draft.topic_url;
+            }
+
+            const response = await fetch('/api/publish', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(publishData)
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.updateStatus('发布成功', 'success');
+                // 删除已发布的草稿
+                await this.deleteSingleDraft(draft.id, false);
+            } else {
+                this.updateStatus('发布失败: ' + result.error, 'error');
+            }
+        } catch (error) {
+            console.error('发布草稿失败:', error);
+            this.updateStatus('发布草稿失败: ' + error.message, 'error');
+        }
+    }
+
+    // 删除单篇草稿
+    async deleteSingleDraft(draftId, needConfirm = true) {
+        if (needConfirm && !confirm('确定要删除这篇草稿吗？')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/drafts/${draftId}`, {
+                method: 'DELETE'
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.updateStatus('草稿删除成功', 'success');
+                await this.loadDrafts();
+            } else {
+                this.updateStatus('删除草稿失败: ' + result.error, 'error');
+            }
+        } catch (error) {
+            console.error('删除草稿失败:', error);
+            this.updateStatus('删除草稿失败: ' + error.message, 'error');
+        }
+    }
+
+    // 批量发布草稿
+    async batchPublishDrafts(mode) {
+        if (this.selectedDrafts.length === 0) {
+            this.updateStatus('请选择要发布的草稿', 'error');
+            return;
+        }
+
+        if (mode === 'immediate') {
+            if (!confirm(`确定要立即发布选中的 ${this.selectedDrafts.length} 篇草稿吗？`)) {
+                return;
+            }
+        }
+
+        try {
+            const response = await fetch('/api/drafts/batch-publish', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    draft_ids: this.selectedDrafts,
+                    mode: mode
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                const summary = result.summary;
+                this.updateStatus(
+                    `批量发布完成：成功 ${summary.success} 篇，失败 ${summary.failed} 篇`,
+                    summary.failed > 0 ? 'warning' : 'success'
+                );
+                await this.loadDrafts();
+            } else {
+                this.updateStatus('批量发布失败: ' + result.error, 'error');
+            }
+        } catch (error) {
+            console.error('批量发布失败:', error);
+            this.updateStatus('批量发布失败: ' + error.message, 'error');
+        }
+    }
+
+    // 批量删除草稿
+    async batchDeleteDrafts() {
+        if (this.selectedDrafts.length === 0) {
+            this.updateStatus('请选择要删除的草稿', 'error');
+            return;
+        }
+
+        if (!confirm(`确定要删除选中的 ${this.selectedDrafts.length} 篇草稿吗？此操作不可撤销。`)) {
+            return;
+        }
+
+        try {
+            const deletePromises = this.selectedDrafts.map(draftId =>
+                fetch(`/api/drafts/${draftId}`, { method: 'DELETE' })
+            );
+
+            const responses = await Promise.all(deletePromises);
+            const results = await Promise.all(responses.map(r => r.json()));
+
+            const successCount = results.filter(r => r.success).length;
+            const failedCount = results.length - successCount;
+
+            this.updateStatus(
+                `批量删除完成：成功 ${successCount} 篇，失败 ${failedCount} 篇`,
+                failedCount > 0 ? 'warning' : 'success'
+            );
+
+            await this.loadDrafts();
+        } catch (error) {
+            console.error('批量删除失败:', error);
+            this.updateStatus('批量删除失败: ' + error.message, 'error');
+        }
+    }
+
+    // 批量发布配置弹窗
+    openBatchPublishConfigModal() {
+        if (!this.batchPublishConfigModal) return;
+
+        if (this.selectedDrafts.length === 0) {
+            this.updateStatus('请选择要定时发布的草稿', 'error');
+            return;
+        }
+
+        // 更新选中数量显示
+        if (this.batchSelectedCountDisplay) {
+            this.batchSelectedCountDisplay.textContent = this.selectedDrafts.length;
+        }
+
+        this.batchPublishConfigModal.style.display = 'block';
+    }
+
+    closeBatchPublishConfigModal() {
+        if (!this.batchPublishConfigModal) return;
+        this.batchPublishConfigModal.style.display = 'none';
+    }
+
+    async confirmBatchPublish() {
+        const minInterval = parseInt(this.batchMinInterval?.value || 60);
+        const maxInterval = parseInt(this.batchMaxInterval?.value || 80);
+
+        if (minInterval < 10 || maxInterval < 10) {
+            this.updateStatus('时间间隔不能小于10分钟', 'error');
+            return;
+        }
+
+        if (minInterval > maxInterval) {
+            this.updateStatus('最小间隔不能大于最大间隔', 'error');
+            return;
+        }
+
+        try {
+            this.setButtonLoading(this.confirmBatchPublishBtn, true);
+            this.updateStatus('正在添加到定时发布队列...', 'info');
+
+            const response = await fetch('/api/drafts/batch-publish', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    draft_ids: this.selectedDrafts,
+                    mode: 'scheduled',
+                    min_interval: minInterval,
+                    max_interval: maxInterval
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                const summary = result.summary;
+                this.updateStatus(
+                    `成功添加 ${summary.success} 篇到定时发布队列`,
+                    summary.failed > 0 ? 'warning' : 'success'
+                );
+
+                this.closeBatchPublishConfigModal();
+                await this.loadDrafts();
+                await this.loadScheduledPostsCount();
+            } else {
+                this.updateStatus('添加到定时发布失败: ' + result.error, 'error');
+            }
+        } catch (error) {
+            console.error('批量定时发布失败:', error);
+            this.updateStatus('批量定时发布失败: ' + error.message, 'error');
+        } finally {
+            this.setButtonLoading(this.confirmBatchPublishBtn, false);
+        }
+    }
+
+    // 草稿编辑弹窗
+    openEditDraftModal(draft) {
+        if (!this.editDraftModal) return;
+
+        this.currentEditingDraftId = draft.id;
+
+        // 填充表单
+        if (this.editDraftTitle) this.editDraftTitle.value = draft.title || '';
+        if (this.editDraftContent) this.editDraftContent.value = draft.content || '';
+        if (this.editDraftPublishType) this.editDraftPublishType.value = draft.publish_type || 'anonymous';
+
+        // 更新话题选择器
+        this.updateEditDraftTopicSelectors();
+
+        // 设置话题
+        if (draft.topic_id) {
+            const topic = this.topics.find(t => t.id === draft.topic_id);
+            if (topic) {
+                if (this.editDraftTopicGroup) {
+                    this.editDraftTopicGroup.value = topic.group_name || '';
+                    this.onEditDraftTopicGroupChange();
+                }
+                if (this.editDraftTopicSelect) {
+                    this.editDraftTopicSelect.value = draft.topic_id;
+                }
+            }
+        }
+
+        this.editDraftModal.style.display = 'block';
+    }
+
+    closeEditDraftModal() {
+        if (!this.editDraftModal) return;
+        this.editDraftModal.style.display = 'none';
+        this.currentEditingDraftId = null;
+    }
+
+    updateEditDraftTopicSelectors() {
+        // 更新分组选择器
+        if (this.editDraftTopicGroup) {
+            this.editDraftTopicGroup.innerHTML = '<option value="">所有分组</option>';
+            Object.keys(this.groupedTopics).forEach(groupName => {
+                const option = document.createElement('option');
+                option.value = groupName;
+                option.textContent = groupName;
+                this.editDraftTopicGroup.appendChild(option);
+            });
+        }
+
+        this.onEditDraftTopicGroupChange();
+    }
+
+    onEditDraftTopicGroupChange() {
+        if (!this.editDraftTopicSelect) return;
+
+        const selectedGroup = this.editDraftTopicGroup?.value || '';
+        this.editDraftTopicSelect.innerHTML = '<option value="">选择话题（可选）</option>';
+
+        if (selectedGroup) {
+            const groupTopics = this.groupedTopics[selectedGroup] || [];
+            groupTopics.forEach(topic => {
+                const option = document.createElement('option');
+                option.value = topic.id;
+                option.textContent = `${topic.name} (ID: ${topic.id})`;
+                this.editDraftTopicSelect.appendChild(option);
+            });
+        } else {
+            // 显示所有话题按分组
+            Object.entries(this.groupedTopics).forEach(([groupName, topics]) => {
+                if (topics.length > 0) {
+                    const optgroup = document.createElement('optgroup');
+                    optgroup.label = groupName;
+                    topics.forEach(topic => {
+                        const option = document.createElement('option');
+                        option.value = topic.id;
+                        option.textContent = `${topic.name} (ID: ${topic.id})`;
+                        optgroup.appendChild(option);
+                    });
+                    this.editDraftTopicSelect.appendChild(optgroup);
+                }
+            });
+        }
+    }
+
+    async saveEditedDraft() {
+        if (!this.currentEditingDraftId) return;
+
+        const title = this.editDraftTitle?.value.trim() || '';
+        const content = this.editDraftContent?.value.trim();
+        const topicId = this.editDraftTopicSelect?.value || null;
+        const publishType = this.editDraftPublishType?.value || 'anonymous';
+
+        if (!content) {
+            this.updateStatus('内容不能为空', 'error');
+            return;
+        }
+
+        try {
+            this.setButtonLoading(this.saveDraftBtn, true);
+
+            const updateData = {
+                title,
+                content,
+                publish_type: publishType
+            };
+
+            if (topicId) {
+                const topic = this.topics.find(t => t.id === topicId);
+                if (topic) {
+                    updateData.topic_id = topic.id;
+                    updateData.circle_type = topic.circle_type;
+                    updateData.topic_name = topic.name;
+                }
+            } else {
+                updateData.topic_id = null;
+                updateData.circle_type = null;
+                updateData.topic_name = null;
+            }
+
+            const response = await fetch(`/api/drafts/${this.currentEditingDraftId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updateData)
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.updateStatus('草稿更新成功', 'success');
+                this.closeEditDraftModal();
+                await this.loadDrafts();
+            } else {
+                this.updateStatus('更新草稿失败: ' + result.error, 'error');
+            }
+        } catch (error) {
+            console.error('更新草稿失败:', error);
+            this.updateStatus('更新草稿失败: ' + error.message, 'error');
+        } finally {
+            this.setButtonLoading(this.saveDraftBtn, false);
         }
     }
 }
