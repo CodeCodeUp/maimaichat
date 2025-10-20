@@ -38,6 +38,7 @@ class MaimaiPublisher {
         this.topicUrlInput = document.getElementById('topic-url');
         this.refreshTopicsBtn = document.getElementById('refresh-topics');
         this.generatedContentTextarea = document.getElementById('generated-content');
+        this.publishAccountSelect = document.getElementById('publish-account-select');
         this.publishBtn = document.getElementById('publish-btn');
         this.schedulePublishBtn = document.getElementById('schedule-publish-btn');
         this.clearBtn = document.getElementById('clear-btn');
@@ -233,6 +234,26 @@ class MaimaiPublisher {
         this.selectedDrafts = [];
         this.currentEditingDraftId = null;
         this.parsedDrafts = [];
+
+        // 脉脉账号管理
+        this.manageAccountsBtn = document.getElementById('manage-accounts');
+        this.accountsModal = document.getElementById('maimai-accounts-modal');
+        this.closeAccountsModalBtn = document.getElementById('close-accounts-modal');
+        this.closeAccountsModalFooterBtn = document.getElementById('close-accounts-modal-footer');
+        this.accountsTotalCount = document.getElementById('accounts-total-count');
+        this.accountsActiveCount = document.getElementById('accounts-active-count');
+        this.newAccountName = document.getElementById('new-account-name');
+        this.newAccountToken = document.getElementById('new-account-token');
+        this.newAccountDescription = document.getElementById('new-account-description');
+        this.newAccountIsDefault = document.getElementById('new-account-is-default');
+        this.newAccountIsActive = document.getElementById('new-account-is-active');
+        this.addAccountBtn = document.getElementById('add-account-btn');
+        this.clearAccountFormBtn = document.getElementById('clear-account-form-btn');
+        this.accountsListContainer = document.getElementById('accounts-list-container');
+        this.refreshAccountsBtn = document.getElementById('refresh-accounts');
+
+        // 账号管理状态
+        this.maimaiAccounts = [];
     }
 
     bindEvents() {
@@ -451,6 +472,21 @@ class MaimaiPublisher {
             }
         });
 
+        // 脉脉账号管理
+        this.manageAccountsBtn?.addEventListener('click', () => this.openAccountsModal());
+        this.closeAccountsModalBtn?.addEventListener('click', () => this.closeAccountsModal());
+        this.closeAccountsModalFooterBtn?.addEventListener('click', () => this.closeAccountsModal());
+        this.addAccountBtn?.addEventListener('click', () => this.addAccount());
+        this.clearAccountFormBtn?.addEventListener('click', () => this.clearAccountForm());
+        this.refreshAccountsBtn?.addEventListener('click', () => this.loadMaimaiAccounts());
+
+        // 账号管理弹窗外部点击关闭
+        this.accountsModal?.addEventListener('click', (e) => {
+            if (e.target === this.accountsModal) {
+                this.closeAccountsModal();
+            }
+        });
+
         // 其他
         this.getTopicInfoBtn?.addEventListener('click', () => this.getTopicInfo());
     }
@@ -463,6 +499,7 @@ class MaimaiPublisher {
         await this.loadGroupKeywords();  // 新增：加载分组关键词
         await this.loadScheduledPostsCount();
         await this.loadAiConfigs();  // 新增：加载AI配置
+        await this.loadMaimaiAccounts();  // 新增：加载脉脉账号
         this.addSystemMessage(this.currentPrompt || '你是一个资深新媒体编辑，擅长将话题梳理成适合脉脉的内容。');
         this.updatePublishButton();
         this.updateStatus('系统初始化完成，已配置移动端API发布模式', 'success');
@@ -1307,10 +1344,16 @@ class MaimaiPublisher {
 
         try {
             let publishData = { title, content: finalContent };
-            
+
             // 获取发布方式
             const publishType = this.publishTypeSelect?.value || 'anonymous';
             publishData.publish_type = publishType;
+
+            // 获取选择的账号ID
+            const accountId = this.publishAccountSelect?.value || null;
+            if (accountId) {
+                publishData.account_id = accountId;
+            }
             
             if (selectedTopicId) {
                 const selectedTopic = this.topics.find(t => t.id === selectedTopicId);
@@ -1395,6 +1438,12 @@ class MaimaiPublisher {
         let successCount = 0;
         let failedCount = 0;
 
+        // 获取选择的账号ID
+        const accountId = this.publishAccountSelect?.value || null;
+        if (accountId) {
+            publishData.account_id = accountId;
+        }
+
         // 并发发布所有文章
         const publishPromises = validPosts.map(async (post, index) => {
             try {
@@ -1403,7 +1452,7 @@ class MaimaiPublisher {
                 if (this.selectedKeyword) {
                     finalContent = `${this.selectedKeyword} ${post.content}`;
                 }
-                
+
                 const postData = {
                     title: post.title,
                     content: finalContent,
@@ -2550,11 +2599,17 @@ class MaimaiPublisher {
 
         try {
             let publishData = { title, content: finalContent };
-            
+
             // 获取发布方式
             const publishType = this.publishTypeSelect?.value || 'anonymous';
             publishData.publish_type = publishType;
-            
+
+            // 获取选择的账号ID
+            const accountId = this.publishAccountSelect?.value || null;
+            if (accountId) {
+                publishData.account_id = accountId;
+            }
+
             if (selectedTopicId) {
                 const selectedTopic = this.topics.find(t => t.id === selectedTopicId);
                 if (selectedTopic) {
@@ -2638,6 +2693,12 @@ class MaimaiPublisher {
         let failedCount = 0;
         const scheduledTimes = [];
 
+        // 获取选择的账号ID
+        const accountId = this.publishAccountSelect?.value || null;
+        if (accountId) {
+            publishData.account_id = accountId;
+        }
+
         // 按顺序添加到定时发布队列（这样能保证正确的时间间隔）
         for (let i = 0; i < validPosts.length; i++) {
             const post = validPosts[i];
@@ -2647,7 +2708,7 @@ class MaimaiPublisher {
                 if (this.selectedKeyword) {
                     finalContent = `${this.selectedKeyword} ${post.content}`;
                 }
-                
+
                 const postData = {
                     title: post.title,
                     content: finalContent,
@@ -4653,6 +4714,369 @@ class MaimaiPublisher {
             this.updateStatus('更新草稿失败: ' + error.message, 'error');
         } finally {
             this.setButtonLoading(this.saveDraftBtn, false);
+        }
+    }
+
+    // ===== 脉脉账号管理 =====
+
+    async loadMaimaiAccounts() {
+        try {
+            const response = await fetch('/api/maimai-accounts');
+            const result = await response.json();
+
+            if (result.success) {
+                this.maimaiAccounts = result.data || [];
+                this.updatePublishAccountSelect();
+                this.updateStatus('脉脉账号加载成功', 'success');
+            } else {
+                throw new Error(result.error || '加载脉脉账号失败');
+            }
+        } catch (error) {
+            console.error('加载脉脉账号失败:', error);
+            this.updateStatus('加载脉脉账号失败: ' + error.message, 'error');
+            this.maimaiAccounts = [];
+        }
+    }
+
+    updatePublishAccountSelect() {
+        if (!this.publishAccountSelect) return;
+
+        this.publishAccountSelect.innerHTML = '<option value="">使用默认账号</option>';
+
+        const activeAccounts = this.maimaiAccounts.filter(acc => acc.is_active);
+        activeAccounts.forEach(account => {
+            const option = document.createElement('option');
+            option.value = account.id;
+            option.textContent = account.name + (account.is_default ? ' (默认)' : '');
+            this.publishAccountSelect.appendChild(option);
+        });
+    }
+
+    openAccountsModal() {
+        if (!this.accountsModal) return;
+        this.renderAccountsList();
+        this.updateAccountsStats();
+        this.accountsModal.style.display = 'block';
+    }
+
+    closeAccountsModal() {
+        if (!this.accountsModal) return;
+        this.accountsModal.style.display = 'none';
+        this.clearAccountForm();
+    }
+
+    renderAccountsList() {
+        if (!this.accountsListContainer) return;
+
+        if (this.maimaiAccounts.length === 0) {
+            this.accountsListContainer.innerHTML = '<p class="no-accounts-message">暂无脉脉账号</p>';
+            return;
+        }
+
+        this.accountsListContainer.innerHTML = '';
+
+        this.maimaiAccounts.forEach(account => {
+            const accountItem = this.createAccountItem(account);
+            this.accountsListContainer.appendChild(accountItem);
+        });
+    }
+
+    createAccountItem(account) {
+        const item = document.createElement('div');
+        item.className = 'account-item';
+        item.dataset.accountId = account.id;
+
+        const statusClass = account.is_active ? 'active' : 'inactive';
+        const statusText = account.is_active ? '启用' : '禁用';
+        const defaultBadge = account.is_default ? '<span class="account-badge default-badge">默认</span>' : '';
+
+        item.innerHTML = `
+            <div class="account-item-header">
+                <div class="account-name">${this.escapeHtml(account.name)}</div>
+                <div class="account-badges">
+                    ${defaultBadge}
+                    <span class="account-badge status-${statusClass}">${statusText}</span>
+                </div>
+            </div>
+            <div class="account-details">
+                <div class="account-description">${this.escapeHtml(account.description || '无描述')}</div>
+                <div class="account-token">Token: ${this.escapeHtml(account.access_token.substring(0, 20))}...</div>
+                <div class="account-dates">
+                    <small>创建: ${new Date(account.created_at).toLocaleString()}</small>
+                </div>
+            </div>
+            <div class="account-actions">
+                ${!account.is_default ? `<button class="btn-primary small set-default-account" data-id="${account.id}">设为默认</button>` : ''}
+                <button class="btn-${account.is_active ? 'warning' : 'success'} small toggle-account" data-id="${account.id}">
+                    ${account.is_active ? '禁用' : '启用'}
+                </button>
+                <button class="btn-secondary small edit-account" data-id="${account.id}">编辑</button>
+                <button class="btn-danger small delete-account" data-id="${account.id}">删除</button>
+            </div>
+        `;
+
+        // 绑定操作按钮
+        const setDefaultBtn = item.querySelector('.set-default-account');
+        setDefaultBtn?.addEventListener('click', () => this.setDefaultAccount(account.id));
+
+        const toggleBtn = item.querySelector('.toggle-account');
+        toggleBtn?.addEventListener('click', () => this.toggleAccount(account.id, !account.is_active));
+
+        const editBtn = item.querySelector('.edit-account');
+        editBtn?.addEventListener('click', () => this.editAccount(account));
+
+        const deleteBtn = item.querySelector('.delete-account');
+        deleteBtn?.addEventListener('click', () => this.deleteAccount(account.id));
+
+        return item;
+    }
+
+    updateAccountsStats() {
+        const totalCount = this.maimaiAccounts.length;
+        const activeCount = this.maimaiAccounts.filter(acc => acc.is_active).length;
+
+        if (this.accountsTotalCount) {
+            this.accountsTotalCount.textContent = totalCount;
+        }
+        if (this.accountsActiveCount) {
+            this.accountsActiveCount.textContent = activeCount;
+        }
+    }
+
+    async addAccount() {
+        const name = this.newAccountName?.value.trim();
+        const token = this.newAccountToken?.value.trim();
+        const description = this.newAccountDescription?.value.trim();
+        const isDefault = this.newAccountIsDefault?.checked || false;
+        const isActive = this.newAccountIsActive?.checked !== false; // 默认启用
+
+        if (!name || !token) {
+            this.updateStatus('请填写账号名称和Access Token', 'error');
+            return;
+        }
+
+        try {
+            this.setButtonLoading(this.addAccountBtn, true);
+
+            const response = await fetch('/api/maimai-accounts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name,
+                    access_token: token,
+                    description,
+                    is_default: isDefault,
+                    is_active: isActive
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.updateStatus('脉脉账号添加成功', 'success');
+                this.clearAccountForm();
+                await this.loadMaimaiAccounts();
+                this.renderAccountsList();
+                this.updateAccountsStats();
+            } else {
+                this.updateStatus('添加账号失败: ' + result.error, 'error');
+            }
+        } catch (error) {
+            console.error('添加账号失败:', error);
+            this.updateStatus('添加账号失败: ' + error.message, 'error');
+        } finally {
+            this.setButtonLoading(this.addAccountBtn, false);
+        }
+    }
+
+    clearAccountForm() {
+        if (this.newAccountName) this.newAccountName.value = '';
+        if (this.newAccountToken) this.newAccountToken.value = '';
+        if (this.newAccountDescription) this.newAccountDescription.value = '';
+        if (this.newAccountIsDefault) this.newAccountIsDefault.checked = false;
+        if (this.newAccountIsActive) this.newAccountIsActive.checked = true;
+    }
+
+    async setDefaultAccount(accountId) {
+        try {
+            const response = await fetch(`/api/maimai-accounts/${accountId}/set-default`, {
+                method: 'POST'
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.updateStatus('默认账号设置成功', 'success');
+                await this.loadMaimaiAccounts();
+                this.renderAccountsList();
+            } else {
+                this.updateStatus('设置默认账号失败: ' + result.error, 'error');
+            }
+        } catch (error) {
+            console.error('设置默认账号失败:', error);
+            this.updateStatus('设置默认账号失败: ' + error.message, 'error');
+        }
+    }
+
+    async toggleAccount(accountId, isActive) {
+        try {
+            const response = await fetch(`/api/maimai-accounts/${accountId}/toggle`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ is_active: isActive })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.updateStatus(isActive ? '账号已启用' : '账号已禁用', 'success');
+                await this.loadMaimaiAccounts();
+                this.renderAccountsList();
+                this.updateAccountsStats();
+            } else {
+                this.updateStatus('切换账号状态失败: ' + result.error, 'error');
+            }
+        } catch (error) {
+            console.error('切换账号状态失败:', error);
+            this.updateStatus('切换账号状态失败: ' + error.message, 'error');
+        }
+    }
+
+    editAccount(account) {
+        // 创建编辑弹窗
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.style.display = 'block';
+
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>编辑脉脉账号</h3>
+                    <button class="modal-close" id="close-edit-account-modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <label>账号名称:</label>
+                        <input type="text" id="edit-account-name" value="${this.escapeHtml(account.name)}" placeholder="账号名称">
+                    </div>
+                    <div class="row">
+                        <label>Access Token:</label>
+                        <input type="text" id="edit-account-token" value="${this.escapeHtml(account.access_token)}" placeholder="Access Token">
+                    </div>
+                    <div class="row">
+                        <label>描述:</label>
+                        <textarea id="edit-account-description" rows="3" placeholder="账号描述（可选）">${this.escapeHtml(account.description || '')}</textarea>
+                    </div>
+                    <div class="row">
+                        <label>
+                            <input type="checkbox" id="edit-account-is-default" ${account.is_default ? 'checked' : ''}>
+                            设为默认账号
+                        </label>
+                    </div>
+                    <div class="row">
+                        <label>
+                            <input type="checkbox" id="edit-account-is-active" ${account.is_active ? 'checked' : ''}>
+                            启用账号
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="save-account-edit" class="btn-success">保存修改</button>
+                    <button id="cancel-account-edit" class="btn-secondary">取消</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // 绑定事件
+        const closeBtn = modal.querySelector('#close-edit-account-modal');
+        const cancelBtn = modal.querySelector('#cancel-account-edit');
+        const saveBtn = modal.querySelector('#save-account-edit');
+
+        const closeModal = () => {
+            document.body.removeChild(modal);
+        };
+
+        closeBtn.addEventListener('click', closeModal);
+        cancelBtn.addEventListener('click', closeModal);
+
+        // 点击模态框外部关闭
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeModal();
+            }
+        });
+
+        saveBtn.addEventListener('click', async () => {
+            const name = modal.querySelector('#edit-account-name').value.trim();
+            const token = modal.querySelector('#edit-account-token').value.trim();
+            const description = modal.querySelector('#edit-account-description').value.trim();
+            const isDefault = modal.querySelector('#edit-account-is-default').checked;
+            const isActive = modal.querySelector('#edit-account-is-active').checked;
+
+            if (!name || !token) {
+                alert('账号名称和Access Token不能为空');
+                return;
+            }
+
+            try {
+                this.setButtonLoading(saveBtn, true);
+
+                const response = await fetch(`/api/maimai-accounts/${account.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name,
+                        access_token: token,
+                        description,
+                        is_default: isDefault,
+                        is_active: isActive
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    this.updateStatus('账号信息更新成功', 'success');
+                    await this.loadMaimaiAccounts();
+                    this.renderAccountsList();
+                    this.updateAccountsStats();
+                    closeModal();
+                } else {
+                    this.updateStatus('更新账号失败: ' + result.error, 'error');
+                }
+            } catch (error) {
+                this.updateStatus('更新账号失败: ' + error.message, 'error');
+            } finally {
+                this.setButtonLoading(saveBtn, false);
+            }
+        });
+    }
+
+    async deleteAccount(accountId) {
+        if (!confirm('确定要删除这个脉脉账号吗？此操作不可撤销。')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/maimai-accounts/${accountId}`, {
+                method: 'DELETE'
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.updateStatus('账号删除成功', 'success');
+                await this.loadMaimaiAccounts();
+                this.renderAccountsList();
+                this.updateAccountsStats();
+            } else {
+                this.updateStatus('删除账号失败: ' + result.error, 'error');
+            }
+        } catch (error) {
+            console.error('删除账号失败:', error);
+            this.updateStatus('删除账号失败: ' + error.message, 'error');
         }
     }
 }

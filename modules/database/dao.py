@@ -132,7 +132,7 @@ class ScheduledPostDAO(BaseDAO):
         super().__init__('scheduled_posts')
     
     def _get_table_fields(self) -> List[str]:
-        return ['id', 'title', 'content', 'topic_url', 'topic_id', 'circle_type', 'topic_name', 'publish_type', 'auto_publish_id', 'status', 'scheduled_at', 'published_at', 'error', 'failed_at', 'created_at', 'updated_at']
+        return ['id', 'title', 'content', 'topic_url', 'topic_id', 'circle_type', 'topic_name', 'publish_type', 'account_id', 'auto_publish_id', 'status', 'scheduled_at', 'published_at', 'error', 'failed_at', 'created_at', 'updated_at']
     
     def _get_json_fields(self) -> List[str]:
         return []
@@ -453,7 +453,7 @@ class AutoPublishConfigDAO(BaseDAO):
         super().__init__('auto_publish_configs')
     
     def _get_table_fields(self) -> List[str]:
-        return ['id', 'topic_id', 'publish_type', 'prompt_key', 'min_interval', 'max_interval', 'retry_count', 'max_retry', 'last_error', 'max_posts', 'current_posts', 'is_active', 'last_published_at', 'created_at', 'updated_at']
+        return ['id', 'topic_id', 'publish_type', 'account_id', 'prompt_key', 'min_interval', 'max_interval', 'retry_count', 'max_retry', 'last_error', 'max_posts', 'current_posts', 'is_active', 'last_published_at', 'created_at', 'updated_at']
     
     def _get_json_fields(self) -> List[str]:
         return []
@@ -641,7 +641,7 @@ class DraftDAO(BaseDAO):
         super().__init__('drafts')
 
     def _get_table_fields(self) -> List[str]:
-        return ['id', 'title', 'content', 'topic_url', 'topic_id', 'circle_type', 'topic_name', 'publish_type', 'source', 'tags', 'created_at', 'updated_at']
+        return ['id', 'title', 'content', 'topic_url', 'topic_id', 'circle_type', 'topic_name', 'publish_type', 'account_id', 'source', 'tags', 'created_at', 'updated_at']
 
     def _get_json_fields(self) -> List[str]:
         return []
@@ -668,3 +668,68 @@ class DraftDAO(BaseDAO):
         sql = f"SELECT * FROM `{self.table_name}` WHERE FIND_IN_SET(%s, `tags`) > 0 ORDER BY `created_at` DESC"
         result = self.db.execute_query(sql, (tag,))
         return [self._process_record(record) for record in result]
+
+
+class MaimaiAccountDAO(BaseDAO):
+    """脉脉账号DAO"""
+
+    def __init__(self):
+        super().__init__('maimai_accounts')
+
+    def _get_table_fields(self) -> List[str]:
+        return ['id', 'name', 'access_token', 'description', 'is_default', 'is_active', 'created_at', 'updated_at']
+
+    def _get_json_fields(self) -> List[str]:
+        return []
+
+    def _get_datetime_fields(self) -> List[str]:
+        return ['created_at', 'updated_at']
+
+    def find_active(self) -> List[Dict[str, Any]]:
+        """查找所有激活的账号"""
+        return self.find_all({'is_active': 1}, 'created_at ASC')
+
+    def find_default(self) -> Optional[Dict[str, Any]]:
+        """查找默认账号"""
+        result = self.find_all({'is_default': 1})
+        return result[0] if result else None
+
+    def find_by_name(self, name: str) -> Optional[Dict[str, Any]]:
+        """根据名称查找账号"""
+        result = self.find_all({'name': name})
+        return result[0] if result else None
+
+    def set_default(self, account_id: str) -> bool:
+        """设置默认账号（会将其他账号的is_default设为0）"""
+        try:
+            # 先将所有账号的is_default设为0
+            sql = f"UPDATE `{self.table_name}` SET `is_default` = 0"
+            self.db.execute_update(sql)
+
+            # 再将指定账号设为默认
+            return self.update(account_id, {'is_default': 1}) > 0
+        except Exception as e:
+            logger.error(f"设置默认账号失败: {e}")
+            return False
+
+    def toggle_active(self, account_id: str) -> bool:
+        """切换账号激活状态"""
+        try:
+            account = self.find_by_id(account_id)
+            if not account:
+                return False
+
+            new_active = 0 if account['is_active'] == 1 else 1
+            return self.update(account_id, {'is_active': new_active}) > 0
+        except Exception as e:
+            logger.error(f"切换账号状态失败: {e}")
+            return False
+
+    def get_account_token(self, account_id: str) -> Optional[str]:
+        """获取账号的access_token"""
+        account = self.find_by_id(account_id)
+        return account['access_token'] if account else None
+
+    def exists_by_name(self, name: str) -> bool:
+        """检查账号名称是否已存在"""
+        return self.find_by_name(name) is not None

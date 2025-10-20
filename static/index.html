@@ -72,7 +72,15 @@
                             <option value="real_name">实名发布</option>
                         </select>
                     </div>
-                    
+
+                    <!-- 账号选择区域 -->
+                    <div class="row">
+                        <label class="small-label">使用账号:</label>
+                        <select id="publish-account-select" class="grow">
+                            <option value="">使用默认账号</option>
+                        </select>
+                    </div>
+
                     <textarea id="generated-content" rows="8" placeholder="生成的内容会显示在这里，可编辑后发布"></textarea>
                     
                     <!-- 多篇内容显示区域 -->
@@ -151,6 +159,12 @@
                     </div>
                     <div class="row">
                         <button id="manage-drafts" class="btn-success grow">管理草稿</button>
+                    </div>
+                </div>
+                <div class="section">
+                    <div class="section-title">脉脉账号</div>
+                    <div class="row">
+                        <button id="manage-accounts" class="btn-info grow">账号管理</button>
                     </div>
                 </div>
                 <div class="section">
@@ -693,6 +707,65 @@
             <div class="modal-footer">
                 <button id="save-draft-btn" class="btn-success">保存修改</button>
                 <button id="close-edit-draft-modal-footer" class="btn-secondary">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 脉脉账号管理弹窗 -->
+    <div id="maimai-accounts-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>脉脉账号管理</h3>
+                <button class="modal-close" id="close-accounts-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- 账号统计信息 -->
+                <div class="accounts-stats">
+                    <p>账号总数: <span id="accounts-total-count">0</span> | 激活账号: <span id="accounts-active-count">0</span></p>
+                </div>
+
+                <!-- 新增账号区域 -->
+                <div class="account-add-section">
+                    <h4>添加新账号</h4>
+                    <div class="account-form">
+                        <div class="row">
+                            <input type="text" id="new-account-name" placeholder="账号名称（用于识别）" class="grow">
+                        </div>
+                        <div class="row">
+                            <input type="text" id="new-account-token" placeholder="Access Token" class="grow">
+                        </div>
+                        <div class="row">
+                            <textarea id="new-account-description" rows="2" placeholder="账号描述（可选）"></textarea>
+                        </div>
+                        <div class="row">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="new-account-is-default">
+                                <span>设为默认账号</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="new-account-is-active" checked>
+                                <span>启用账号</span>
+                            </label>
+                        </div>
+                        <div class="row">
+                            <button id="add-account-btn" class="btn-success small">添加账号</button>
+                            <button id="clear-account-form-btn" class="btn-secondary small">清空表单</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 账号列表区域 -->
+                <div class="accounts-list-section">
+                    <h4>现有账号</h4>
+                    <div id="accounts-list-container" class="accounts-list-container">
+                        <!-- 账号列表将在这里动态生成 -->
+                        <p class="no-accounts-message">暂无账号</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="refresh-accounts" class="btn-primary">刷新列表</button>
+                <button id="close-accounts-modal-footer" class="btn-secondary">关闭</button>
             </div>
         </div>
     </div>

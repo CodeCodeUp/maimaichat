@@ -245,8 +245,11 @@ def publish_content():
         topic_id = data.get('topic_id', '')
         circle_type = data.get('circle_type', '')
         publish_type = data.get('publish_type', 'anonymous')  # 获取发布方式，默认匿名
+        account_id = data.get('account_id')  # 新增：获取账号ID
 
         logger.info(f"开始发布内容：{title} (发布方式: {'匿名' if publish_type == 'anonymous' else '实名'})")
+        if account_id:
+            logger.info(f"使用指定账号ID: {account_id}")
 
         # 调用脉脉API发布，支持两种话题模式
         if topic_id and circle_type:
@@ -254,14 +257,15 @@ def publish_content():
             logger.info(f"使用选择的话题：ID={topic_id}, circle_type={circle_type}")
             topic_data = topic_store.get_topic(topic_id)
             topic_name = topic_data.get('name') if topic_data else None
-            
+
             result = maimai_api.publish_content(
                 title=title,
                 content=content,
                 topic_id=topic_id,
                 circle_type=circle_type,
                 topic_name=topic_name,
-                publish_type=publish_type
+                publish_type=publish_type,
+                account_id=account_id  # 传递账号ID
             )
         elif topic_url:
             # 使用话题链接提取
@@ -270,7 +274,8 @@ def publish_content():
                 title=title,
                 content=content,
                 topic_url=topic_url,
-                publish_type=publish_type
+                publish_type=publish_type,
+                account_id=account_id  # 传递账号ID
             )
         else:
             # 无话题发布
@@ -278,7 +283,8 @@ def publish_content():
             result = maimai_api.publish_content(
                 title=title,
                 content=content,
-                publish_type=publish_type
+                publish_type=publish_type,
+                account_id=account_id  # 传递账号ID
             )
 
         if result['success']:
@@ -568,8 +574,11 @@ def schedule_publish():
         topic_id = data.get('topic_id', '')
         circle_type = data.get('circle_type', '')
         publish_type = data.get('publish_type', 'anonymous')  # 获取发布方式，默认匿名
+        account_id = data.get('account_id')  # 新增：获取账号ID
 
         logger.info(f"添加定时发布任务：{title} (发布方式: {'匿名' if publish_type == 'anonymous' else '实名'})")
+        if account_id:
+            logger.info(f"使用指定账号ID: {account_id}")
 
         # 确定话题信息，完全复制正常发布的逻辑
         topic_name = None
@@ -585,7 +594,7 @@ def schedule_publish():
         else:
             logger.info("无话题定时发布")
 
-        # 添加到定时发布队列，保存完整的话题信息
+        # 添加到定时发布队列，保存完整的话题信息和账号ID
         post_id = scheduled_posts_store.add_post(
             title=title,
             content=content,
@@ -593,7 +602,8 @@ def schedule_publish():
             topic_id=topic_id,
             circle_type=circle_type,
             topic_name=topic_name,
-            publish_type=publish_type
+            publish_type=publish_type,
+            account_id=account_id  # 保存账号ID
         )
 
         # 获取任务信息以返回预计发布时间
@@ -1808,9 +1818,14 @@ def batch_publish_drafts():
         publish_mode = data.get('mode', 'immediate')  # immediate 或 scheduled
         min_interval = data.get('min_interval', 60)  # 最小间隔（分钟）
         max_interval = data.get('max_interval', 80)  # 最大间隔（分钟）
+        account_id = data.get('account_id')  # 新增：获取账号ID
 
         if not isinstance(draft_ids, list) or len(draft_ids) == 0:
             return jsonify({'success': False, 'error': 'draft_ids必须是非空数组'}), 400
+
+        # 记录账号使用情况
+        if account_id:
+            logger.info(f"批量发布使用指定账号ID: {account_id}")
 
         draft_dao = DraftDAO()
         results = {
@@ -1840,7 +1855,7 @@ def batch_publish_drafts():
                         'publish_type': draft.get('publish_type', 'anonymous')
                     }
 
-                    # 使用现有的脉脉API发布
+                    # 使用现有的脉脉API发布(支持account_id)
                     if draft.get('topic_id') and draft.get('circle_type'):
                         result = maimai_api.publish_content(
                             title=publish_data['title'],
@@ -1848,20 +1863,23 @@ def batch_publish_drafts():
                             topic_id=publish_data['topic_id'],
                             circle_type=publish_data['circle_type'],
                             topic_name=draft.get('topic_name'),
-                            publish_type=publish_data['publish_type']
+                            publish_type=publish_data['publish_type'],
+                            account_id=account_id  # 传递账号ID
                         )
                     elif draft.get('topic_url'):
                         result = maimai_api.publish_content(
                             title=publish_data['title'],
                             content=publish_data['content'],
                             topic_url=publish_data['topic_url'],
-                            publish_type=publish_data['publish_type']
+                            publish_type=publish_data['publish_type'],
+                            account_id=account_id  # 传递账号ID
                         )
                     else:
                         result = maimai_api.publish_content(
                             title=publish_data['title'],
                             content=publish_data['content'],
-                            publish_type=publish_data['publish_type']
+                            publish_type=publish_data['publish_type'],
+                            account_id=account_id  # 传递账号ID
                         )
 
                     if result['success']:
@@ -1920,7 +1938,7 @@ def batch_publish_drafts():
                         else:
                             break
 
-                    # 添加到定时发布队列
+                    # 添加到定时发布队列(支持account_id)
                     post_id = scheduled_posts_store.add_post(
                         title=draft['title'],
                         content=draft['content'],
@@ -1929,6 +1947,7 @@ def batch_publish_drafts():
                         circle_type=draft.get('circle_type'),
                         topic_name=draft.get('topic_name'),
                         publish_type=draft.get('publish_type', 'anonymous'),
+                        account_id=account_id,  # 传递账号ID
                         min_interval=min_interval,
                         max_interval=max_interval
                     )
@@ -1966,6 +1985,215 @@ def batch_publish_drafts():
 
     except Exception as e:
         logger.error(f"批量发布草稿失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ===== 脉脉账号管理API =====
+
+@app.route('/api/maimai-accounts', methods=['GET'])
+def get_maimai_accounts():
+    """获取所有脉脉账号"""
+    try:
+        from modules.database.dao import MaimaiAccountDAO
+        account_dao = MaimaiAccountDAO()
+
+        # 支持筛选：仅激活账号
+        only_active = request.args.get('only_active', 'false').lower() == 'true'
+
+        if only_active:
+            accounts = account_dao.find_active()
+        else:
+            accounts = account_dao.find_all(order_by='created_at ASC')
+
+        return jsonify({
+            'success': True,
+            'data': accounts,
+            'count': len(accounts)
+        })
+    except Exception as e:
+        logger.error(f"获取脉脉账号列表失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/maimai-accounts', methods=['POST'])
+def create_maimai_account():
+    """创建脉脉账号"""
+    try:
+        from modules.database.dao import MaimaiAccountDAO
+        import uuid
+
+        data = request.get_json()
+        if not data or 'name' not in data or 'access_token' not in data:
+            return jsonify({'success': False, 'error': '缺少必需参数：name 和 access_token'}), 400
+
+        account_dao = MaimaiAccountDAO()
+
+        # 检查名称是否已存在
+        if account_dao.exists_by_name(data['name']):
+            return jsonify({'success': False, 'error': '账号名称已存在'}), 400
+
+        account_id = str(uuid.uuid4())
+        account_data = {
+            'id': account_id,
+            'name': data['name'],
+            'access_token': data['access_token'],
+            'description': data.get('description', ''),
+            'is_default': data.get('is_default', 0),
+            'is_active': data.get('is_active', 1)
+        }
+
+        # 如果设置为默认账号，需要先将其他账号的is_default设为0
+        if account_data['is_default'] == 1:
+            account_dao.set_default(account_id)  # 这会先清除其他默认账号
+
+        result = account_dao.insert(account_data)
+        if result:
+            account = account_dao.find_by_id(account_id)
+            return jsonify({
+                'success': True,
+                'data': account,
+                'message': '脉脉账号创建成功'
+            })
+        else:
+            return jsonify({'success': False, 'error': '创建账号失败'}), 500
+
+    except Exception as e:
+        logger.error(f"创建脉脉账号失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/maimai-accounts/<account_id>', methods=['PUT'])
+def update_maimai_account(account_id):
+    """更新脉脉账号"""
+    try:
+        from modules.database.dao import MaimaiAccountDAO
+        account_dao = MaimaiAccountDAO()
+
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': '缺少请求数据'}), 400
+
+        # 检查账号是否存在
+        account = account_dao.find_by_id(account_id)
+        if not account:
+            return jsonify({'success': False, 'error': '账号不存在'}), 404
+
+        # 准备更新数据
+        update_data = {}
+        allowed_fields = ['name', 'access_token', 'description', 'is_active']
+
+        for field in allowed_fields:
+            if field in data:
+                update_data[field] = data[field]
+
+        # 特殊处理is_default
+        if 'is_default' in data and data['is_default'] == 1:
+            # 使用set_default方法会自动处理其他账号的is_default
+            account_dao.set_default(account_id)
+        elif 'is_default' in data and data['is_default'] == 0:
+            update_data['is_default'] = 0
+
+        if not update_data and 'is_default' not in data:
+            return jsonify({'success': False, 'error': '没有提供更新数据'}), 400
+
+        if update_data:
+            rows_affected = account_dao.update(account_id, update_data)
+            if rows_affected == 0:
+                return jsonify({'success': False, 'error': '更新账号失败'}), 500
+
+        updated_account = account_dao.find_by_id(account_id)
+        return jsonify({
+            'success': True,
+            'data': updated_account,
+            'message': '账号更新成功'
+        })
+
+    except Exception as e:
+        logger.error(f"更新脉脉账号失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/maimai-accounts/<account_id>', methods=['DELETE'])
+def delete_maimai_account(account_id):
+    """删除脉脉账号"""
+    try:
+        from modules.database.dao import MaimaiAccountDAO
+        account_dao = MaimaiAccountDAO()
+
+        # 检查是否为默认账号
+        account = account_dao.find_by_id(account_id)
+        if not account:
+            return jsonify({'success': False, 'error': '账号不存在'}), 404
+
+        if account.get('is_default') == 1:
+            return jsonify({'success': False, 'error': '不能删除默认账号，请先设置其他账号为默认'}), 400
+
+        rows_affected = account_dao.delete(account_id)
+        if rows_affected > 0:
+            return jsonify({
+                'success': True,
+                'message': '账号删除成功'
+            })
+        else:
+            return jsonify({'success': False, 'error': '删除账号失败'}), 500
+
+    except Exception as e:
+        logger.error(f"删除脉脉账号失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/maimai-accounts/<account_id>/set-default', methods=['POST'])
+def set_default_maimai_account(account_id):
+    """设置默认账号"""
+    try:
+        from modules.database.dao import MaimaiAccountDAO
+        account_dao = MaimaiAccountDAO()
+
+        # 检查账号是否存在
+        account = account_dao.find_by_id(account_id)
+        if not account:
+            return jsonify({'success': False, 'error': '账号不存在'}), 404
+
+        success = account_dao.set_default(account_id)
+        if success:
+            return jsonify({
+                'success': True,
+                'message': f'已将 "{account["name"]}" 设置为默认账号'
+            })
+        else:
+            return jsonify({'success': False, 'error': '设置默认账号失败'}), 500
+
+    except Exception as e:
+        logger.error(f"设置默认账号失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/maimai-accounts/<account_id>/toggle-active', methods=['POST'])
+def toggle_maimai_account_active(account_id):
+    """切换账号激活状态"""
+    try:
+        from modules.database.dao import MaimaiAccountDAO
+        account_dao = MaimaiAccountDAO()
+
+        # 检查账号是否存在
+        account = account_dao.find_by_id(account_id)
+        if not account:
+            return jsonify({'success': False, 'error': '账号不存在'}), 404
+
+        success = account_dao.toggle_active(account_id)
+        if success:
+            updated_account = account_dao.find_by_id(account_id)
+            status_text = '已启用' if updated_account['is_active'] == 1 else '已禁用'
+            return jsonify({
+                'success': True,
+                'data': updated_account,
+                'message': f'账号 "{account["name"]}" {status_text}'
+            })
+        else:
+            return jsonify({'success': False, 'error': '切换账号状态失败'}), 500
+
+    except Exception as e:
+        logger.error(f"切换账号状态失败: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

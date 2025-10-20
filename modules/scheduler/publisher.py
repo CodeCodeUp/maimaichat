@@ -93,7 +93,8 @@ class ScheduledPublisher:
         circle_type = post_to_publish.get('circle_type', '')
         topic_name = post_to_publish.get('topic_name', '')  # 新增：获取话题名称
         publish_type = post_to_publish.get('publish_type', 'anonymous')  # 新增：获取发布方式
-        
+        account_id = post_to_publish.get('account_id')  # 新增：获取账号ID
+
         # 检查是否为重试任务
         if self.scheduled_posts_store._is_retry_task(post_to_publish):
             logger.info(f"开始处理重试任务: {title}")
@@ -104,13 +105,15 @@ class ScheduledPublisher:
                 self.scheduled_posts_store.mark_as_published(post_id)
                 logger.info(f"重试任务处理成功并已删除: {title}")
             else:
-                # 重试失败，直接删除当前重试任务（新的重试任务已在_handle_retry_task中创建）
+                # 重试失败，直接删除当前重试任务（新的重试任务已在_handle_retry_task���创建）
                 self.scheduled_posts_store.delete_post(post_id)
                 logger.error(f"重试任务处理失败，已删除: {title}")
             return
-        
+
         logger.info(f"开始发布定时任务: {title} (发布方式: {'匿名' if publish_type == 'anonymous' else '实名'})")
-        
+        if account_id:
+            logger.info(f"使用指定账号ID: {account_id}")
+
         try:
             # 调用脉脉API发布，完全复制正常发布的逻辑
             if topic_id and circle_type:
@@ -121,7 +124,8 @@ class ScheduledPublisher:
                     topic_id=topic_id,
                     circle_type=circle_type,
                     topic_name=topic_name,  # 新增：传递话题名称
-                    publish_type=publish_type  # 新增：传递发布方式
+                    publish_type=publish_type,  # 新增：传递发布方式
+                    account_id=account_id  # 新增：传递账号ID
                 )
                 logger.info(f"使用选择的话题发布: ID={topic_id}, Name={topic_name}, CircleType={circle_type}")
             elif topic_url:
@@ -130,7 +134,8 @@ class ScheduledPublisher:
                     title=title,
                     content=content,
                     topic_url=topic_url,
-                    publish_type=publish_type  # 新增：传递发布方式
+                    publish_type=publish_type,  # 新增：传递发布方式
+                    account_id=account_id  # 新增：传递账号ID
                 )
                 logger.info(f"使用话题链接发布: {topic_url}")
             else:
@@ -138,7 +143,8 @@ class ScheduledPublisher:
                 result = self.maimai_api.publish_content(
                     title=title,
                     content=content,
-                    publish_type=publish_type  # 新增：传递发布方式
+                    publish_type=publish_type,  # 新增：传递发布方式
+                    account_id=account_id  # 新增：传递账号ID
                 )
                 logger.info("无话题发布")
             

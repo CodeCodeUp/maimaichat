@@ -36,7 +36,57 @@ class MaimaiAPI:
         headers = self.base_headers.copy()
         headers['x-maimai-reqid'] = self._generate_request_id()
         return headers
-    
+
+    def _get_access_token(self, account_id: str = None) -> Optional[str]:
+        """
+        获取access_token（支持多账号）
+
+        Args:
+            account_id: 账号ID，不提供则使用默认账号
+
+        Returns:
+            access_token或None
+        """
+        try:
+            from modules.database.dao import MaimaiAccountDAO
+            account_dao = MaimaiAccountDAO()
+
+            if account_id:
+                # 使用指定账号
+                account = account_dao.find_by_id(account_id)
+                if account and account.get('is_active') == 1:
+                    logger.info(f"使用指定账号: {account.get('name')}")
+                    return account.get('access_token')
+                else:
+                    logger.warning(f"指定账号不存在或未激活: {account_id}")
+                    return None
+            else:
+                # 使用默认账号
+                default_account = account_dao.find_default()
+                if default_account and default_account.get('is_active') == 1:
+                    logger.info(f"使用默认账号: {default_account.get('name')}")
+                    return default_account.get('access_token')
+                else:
+                    # 没有默认账号,使用第一个激活的账号
+                    active_accounts = account_dao.find_active()
+                    if active_accounts:
+                        logger.info(f"使用第一个激活账号: {active_accounts[0].get('name')}")
+                        return active_accounts[0].get('access_token')
+                    else:
+                        # 如果数据库中没有账号,使用初始化时的token(向后兼容)
+                        if self.access_token:
+                            logger.info("使用初始化时的access_token(向后兼容)")
+                            return self.access_token
+                        logger.error("未找到任何可用的脉脉账号")
+                        return None
+        except Exception as e:
+            logger.error(f"获取access_token失败: {e}")
+            # 向后兼容:如果数据库查询失败,使用初始化时的token
+            if self.access_token:
+                logger.info("数据库查询失败,使用初始化时的access_token")
+                return self.access_token
+            return None
+
     def extract_topic_id(self, url: str) -> Optional[str]:
         """
         从脉脉话题URL中提取topic_id
@@ -146,17 +196,18 @@ class MaimaiAPI:
             logger.error(f"提取话题信息失败：{str(e)}")
             return None
     
-    def publish_content(self, 
-                       title: str, 
-                       content: str, 
+    def publish_content(self,
+                       title: str,
+                       content: str,
                        topic_url: str = None,
                        topic_id: str = None,
                        circle_type: str = None,
                        topic_name: str = None,
-                       publish_type: str = 'anonymous') -> Dict[str, Any]:
+                       publish_type: str = 'anonymous',
+                       account_id: str = None) -> Dict[str, Any]:
         """
         发布内容到脉脉（完全基于真实的移动端API请求）
-        
+
         Args:
             title: 文章标题（可选，主要内容在content中）
             content: 要发布的内容
@@ -164,10 +215,19 @@ class MaimaiAPI:
             topic_id: 话题ID（可选，与topic_url二选一）
             circle_type: 圈子类型（当使用topic_id时必填）
             topic_name: 话题名称（当使用topic_id时传入，避免重新查询）
-            
+            publish_type: 发布方式 (anonymous=匿名, real_name=实名)
+            account_id: 脉脉账号ID（可选，不提供则使用默认账号）
+
         Returns:
             发布结果字典
         """
+        # 动态获取access_token
+        access_token = self._get_access_token(account_id)
+        if not access_token:
+            return {
+                'success': False,
+                'error': '未找到可用的脉脉账号'
+            }
         # 验证参数：topic_url 或 (topic_id + circle_type) 必须提供其中一种
         if topic_url:
             # 使用话题链接模式，从URL提取话题信息
@@ -194,7 +254,7 @@ class MaimaiAPI:
         try:
             # 构建URL参数（使用配置中的设备参数）
             url_params = self.device_params.copy()
-            url_params['access_token'] = f'1.{self.access_token}'
+            url_params['access_token'] = f'1.{access_token}'  # 使用动态获取的token
             
             # 添加动态参数
             url_params['launch_uuid'] = str(uuid.uuid4())
