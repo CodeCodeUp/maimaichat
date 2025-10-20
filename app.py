@@ -41,18 +41,20 @@ def parse_ai_response(content: str) -> dict:
         
         # 使用更简单直接的正则表达式，优先匹配完整的对象
         # 方法1：匹配完整的对象结构 {title:"...", content:"..."}
-        object_pattern = r'\{\s*"title"\s*:\s*"((?:[^"\\]|\\.)*?)"\s*,\s*"content"\s*:\s*"((?:[^"\\]|\\.)*?)"\s*\}'
+        # 修改：使用贪婪匹配而非惰性匹配，确保能完整匹配包含中文引号等特殊字符的内容
+        object_pattern = r'\{\s*"title"\s*:\s*"((?:[^"\\]|\\.)*)"\s*,\s*"content"\s*:\s*"((?:[^"\\]|\\.)*)"\s*\}'
         object_matches = re.findall(object_pattern, content, re.DOTALL)
-        
+
         if object_matches:
             titles = [m[0] for m in object_matches]
             contents = [m[1] for m in object_matches]
             logger.info("使用对象模式匹配成功")
         else:
             # 方法2：单独匹配title和content字段
-            title_pattern = r'"title"\s*:\s*"((?:[^"\\]|\\.)*?)"'
-            content_pattern = r'"content"\s*:\s*"((?:[^"\\]|\\.)*?)"'
-            
+            # 同样使用贪婪匹配，并在后面添加[,}]以确保匹配到正确的结束位置
+            title_pattern = r'"title"\s*:\s*"((?:[^"\\]|\\.)*)"\s*[,}]'
+            content_pattern = r'"content"\s*:\s*"((?:[^"\\]|\\.)*)"\s*[,}]'
+
             titles = re.findall(title_pattern, content, re.DOTALL)
             contents = re.findall(content_pattern, content, re.DOTALL)
             logger.info("使用字段模式匹配")
