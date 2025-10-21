@@ -1950,8 +1950,7 @@ def batch_publish_drafts():
                         topic_name=draft.get('topic_name'),
                         publish_type=draft.get('publish_type', 'anonymous'),
                         account_id=account_id,  # 传递账号ID
-                        min_interval=min_interval,
-                        max_interval=max_interval
+                        scheduled_at=scheduled_time  # 传递计算好的发布时间
                     )
 
                     if post_id:

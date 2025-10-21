@@ -30,50 +30,60 @@ class ScheduledPostsStoreDB:
     def add_post(self, title: str, content: str, topic_url: str = None,
                  topic_id: str = None, circle_type: str = None, topic_name: str = None,
                  auto_publish_id: str = None, publish_type: str = 'anonymous',
-                 account_id: str = None,
+                 account_id: str = None, scheduled_at: datetime = None,
                  min_interval: int = None, max_interval: int = None) -> str:
-        """添加定时发布任务，基于最后一篇待发布时间计算发布时间"""
+        """添加定时发布任务
+
+        Args:
+            scheduled_at: 指定的发布时间。如果提供，直接使用；否则自动计算
+            其他参数保持不变
+        """
         post_id = str(uuid.uuid4())
-        
-        # 根据是否为自动发布，调整时间间隔计算
-        if auto_publish_id:
-            # 自动发布：使用配置的间隔或默认30-60分钟
-            if min_interval is not None and max_interval is not None:
-                delay_minutes = random.randint(min_interval, max_interval)
-                logger.info(f"自动发布任务，使用配置间隔：{min_interval}-{max_interval}分钟，随机延迟：{delay_minutes}分钟")
-            else:
-                # 如果没有配置，从数据库获取配置
-                try:
-                    from modules.database.dao import AutoPublishConfigDAO
-                    auto_config_dao = AutoPublishConfigDAO()
-                    auto_config = auto_config_dao.find_by_id(auto_publish_id)
-                    if auto_config and 'min_interval' in auto_config and 'max_interval' in auto_config:
-                        delay_minutes = random.randint(auto_config['min_interval'], auto_config['max_interval'])
-                        logger.info(f"自动发布任务，从配置读取间隔：{auto_config['min_interval']}-{auto_config['max_interval']}分钟，随机延迟：{delay_minutes}分钟")
-                    else:
-                        # 使用默认值
+
+        # 如果外部已经指定了发布时间，直接使用
+        if scheduled_at is not None:
+            logger.info(f"使用外部指定的发布时间: {scheduled_at.strftime('%Y-%m-%d %H:%M:%S')}")
+        else:
+            # 原有的自动计算逻辑
+            # 根据是否为自动发布，调整时间间隔计算
+            if auto_publish_id:
+                # 自动发布：使用配置的间隔或默认30-60分钟
+                if min_interval is not None and max_interval is not None:
+                    delay_minutes = random.randint(min_interval, max_interval)
+                    logger.info(f"自动发布任务，使用配置间隔：{min_interval}-{max_interval}分钟，随机延迟：{delay_minutes}分钟")
+                else:
+                    # 如果没有配置，从数据库获取配置
+                    try:
+                        from modules.database.dao import AutoPublishConfigDAO
+                        auto_config_dao = AutoPublishConfigDAO()
+                        auto_config = auto_config_dao.find_by_id(auto_publish_id)
+                        if auto_config and 'min_interval' in auto_config and 'max_interval' in auto_config:
+                            delay_minutes = random.randint(auto_config['min_interval'], auto_config['max_interval'])
+                            logger.info(f"自动发布任务，从配置读取间隔：{auto_config['min_interval']}-{auto_config['max_interval']}分钟，随机延迟：{delay_minutes}分钟")
+                        else:
+                            # 使用默认值
+                            delay_minutes = random.randint(30, 60)
+                            logger.info(f"自动发布任务，使用默认间隔：30-60分钟，随机延迟：{delay_minutes}分钟")
+                    except Exception as e:
+                        logger.error(f"读取自动发布配置失败: {e}")
                         delay_minutes = random.randint(30, 60)
                         logger.info(f"自动发布任务，使用默认间隔：30-60分钟，随机延迟：{delay_minutes}分钟")
-                except Exception as e:
-                    logger.error(f"读取自动发布配置失败: {e}")
-                    delay_minutes = random.randint(30, 60)
-                    logger.info(f"自动发布任务，使用默认间隔：30-60分钟，随机延迟：{delay_minutes}分钟")
-        else:
-            # 手动发布：5-20分钟间隔
-            delay_minutes = random.randint(10, 30)
-            logger.info(f"手动发布任务，随机延迟：{delay_minutes}分钟")
-        
-        # 获取当前所有待发布任务的最晚发布时间
-        latest_scheduled_time = self._get_latest_scheduled_time()
-        
-        if latest_scheduled_time:
-            # 如果有待发布任务，从最晚的发布时间再加上延迟
-            scheduled_at = latest_scheduled_time + timedelta(minutes=delay_minutes)
-            logger.info(f"基于最后待发布时间计算：{latest_scheduled_time.strftime('%H:%M:%S')} + {delay_minutes}分钟")
-        else:
-            # 如果没有待发布任务，从当前时间开始计算
-            scheduled_at = datetime.now() + timedelta(minutes=delay_minutes)
-            logger.info(f"基于当前时间计算：{datetime.now().strftime('%H:%M:%S')} + {delay_minutes}分钟")
+            else:
+                # 手动发布：5-20分钟间隔
+                delay_minutes = random.randint(10, 30)
+                logger.info(f"手动发布任务，随机延迟：{delay_minutes}分钟")
+
+            # 获取当前所有待发布任务的最晚发布时间
+            latest_scheduled_time = self._get_latest_scheduled_time()
+
+            if latest_scheduled_time:
+                # 如果有待发布任务，从最晚的发布时间再加上延迟
+                scheduled_at = latest_scheduled_time + timedelta(minutes=delay_minutes)
+                logger.info(f"基于最后待发布时间计算：{latest_scheduled_time.strftime('%H:%M:%S')} + {delay_minutes}分钟")
+            else:
+                # 如果没有待发布任务，从当前时间开始计算
+                scheduled_at = datetime.now() + timedelta(minutes=delay_minutes)
+                logger.info(f"基于当前时间计算：{datetime.now().strftime('%H:%M:%S')} + {delay_minutes}分钟")
         
         post_data = {
             "id": post_id,
