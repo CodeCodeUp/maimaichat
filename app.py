@@ -1906,6 +1906,7 @@ def batch_publish_drafts():
         else:  # scheduled mode
             # 定时发布模式，支持智能跳过夜间时段
             current_time = datetime.now()
+            scheduled_time = None  # 初始化为None
 
             for i, draft_id in enumerate(draft_ids):
                 try:
@@ -1917,13 +1918,14 @@ def batch_publish_drafts():
                         })
                         continue
 
-                    # 计算发布时间
+                    # 计算发布时间 - 所有篇都使用随机间隔
+                    interval_minutes = random.randint(min_interval, max_interval)
+
                     if i == 0:
-                        # 第一篇：基于当前时间
-                        scheduled_time = current_time
+                        # 第一篇：当前时间 + 随机间隔
+                        scheduled_time = current_time + timedelta(minutes=interval_minutes)
                     else:
                         # 后续篇：基于上一篇的时间加上随机间隔
-                        interval_minutes = random.randint(min_interval, max_interval)
                         scheduled_time = scheduled_time + timedelta(minutes=interval_minutes)
 
                     # 智能跳过夜间时段 (22:00-8:00)
