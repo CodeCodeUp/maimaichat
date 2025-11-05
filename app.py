@@ -70,8 +70,9 @@ def parse_ai_response(content: str) -> dict:
         for i in range(max_pairs):
             title = titles[i].strip()
             content_text = contents[i].strip()
-            
-            if title and content_text:
+
+            # 只要content有内容即可,title允许为空
+            if content_text:
                 # 处理转义字符
                 title = title.replace('\\"', '"').replace('\\n', '\n')
                 content_text = content_text.replace('\\"', '"').replace('\\n', '\n')
